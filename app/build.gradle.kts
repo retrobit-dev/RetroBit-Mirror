@@ -1,7 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+val releasePropsFile = rootProject.file("signing/release.properties")
+val releaseProps = Properties().apply {
+    if (releasePropsFile.exists()) {
+        releasePropsFile.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -16,11 +25,26 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        if (releasePropsFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(releaseProps.getProperty("storeFile"))
+                storePassword = releaseProps.getProperty("storePassword")
+                keyAlias = releaseProps.getProperty("keyAlias")
+                keyPassword = releaseProps.getProperty("keyPassword")
+                storeType = releaseProps.getProperty("storeType") ?: "PKCS12"
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // R8 stays off. Shizuku and the shell injector use hidden APIs that
+            // a shrinker would break, and this build is for sideload, not Play.
             isMinifyEnabled = false
             isShrinkResources = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

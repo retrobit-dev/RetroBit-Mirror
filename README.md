@@ -60,7 +60,16 @@ Tanpa Shizuku, layar tetap bisa dipantulkan. Kontrol analog-nya yang belum layak
 
 ## Build di GitHub
 
-Setiap push menjalankan GitHub Actions dan menghasilkan APK debug. Unduh dari tab Actions pada run yang hijau, artifact `RetroBit-Mirror-debug`. APK itu bisa langsung dipasang di GT 30 Pro.
+Setiap push menjalankan GitHub Actions dan menghasilkan dua APK:
+
+- `RetroBit-Mirror-release` — yang dipasang di ponsel. File di dalamnya `RetroBit-Mirror-1.0.0.apk`.
+- `RetroBit-Mirror-debug` — hanya untuk pengembangan.
+
+Unduh dari tab Actions pada run yang hijau, atau dari [Releases](https://github.com/retrobit-dev/RetroBit-Mirror/releases) kalau run-nya menerbitkan rilis `v1.0.0`.
+
+APK rilis ditandatangani dengan kunci tetap di `signing/`. Build berikutnya bisa dipasang di atas yang lama tanpa hapus data. Kalau sebelumnya terpasang APK debug, Android menolak karena tanda tangannya berbeda: hapus dulu, lalu pasang rilis.
+
+Kunci itu ada di repo supaya Actions bisa menandatangani tanpa secret. Repo ini publik, jadi kunci hanya untuk sideload. Jangan unggah APK ini ke Play Store, dan jangan anggap tanda tangannya sebagai jaminan bahwa APK berasal dari pengembang.
 
 ## Build di komputer
 
@@ -68,15 +77,13 @@ Butuh Android Studio dengan JDK 17.
 
 1. Buka folder ini.
 2. Biarkan Android Studio mengunduh Gradle 8.9 dan Android SDK 35.
-3. `Build > Build APK(s)`, atau:
+3. `Build > Generate Signed App Bundle or APK`, atau:
 
 ```bash
-./gradlew :app:assembleDebug
+./gradlew :app:assembleRelease
 ```
 
-APK ada di `app/build/outputs/apk/debug/app-debug.apk`.
-
-Rilis (`assembleRelease`) ditandatangani dengan kunci debug supaya bisa langsung dipasang di ponsel sendiri. Jangan unggah build itu ke Play Store.
+APK ada di `app/build/outputs/apk/release/`. Kunci sideload yang sama dengan GitHub dibaca dari `signing/release.properties`.
 
 Pasang di GT 30 Pro. Izinkan pemasangan dari sumber tak dikenal. Kalau tabletmu masih Android / HarmonyOS 4, pasang APK yang sama di sana.
 

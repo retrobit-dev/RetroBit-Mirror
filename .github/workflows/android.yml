@@ -2,15 +2,20 @@ name: Build APK
 
 on:
   push:
+    branches:
+      - "**"
   workflow_dispatch:
 
 concurrency:
   group: apk-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   apk:
-    name: Assemble debug APK
+    name: Assemble APKs
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -41,10 +46,10 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Build debug APK
+      - name: Build debug and release APKs
         run: |
           set +e
-          gradle :app:assembleDebug --stacktrace --no-daemon > build.log 2>&1
+          gradle :app:assembleDebug :app:assembleRelease --stacktrace --no-daemon > build.log 2>&1
           code=$?
           if [ "$code" -ne 0 ]; then
             grep -E "e: |error:|FAILURE|What went wrong|Execution failed|Unresolved reference" build.log \
@@ -58,10 +63,52 @@ jobs:
             exit "$code"
           fi
 
-      - name: Upload APK
+      - name: Check release signature
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/*.apk dist/RetroBit-Mirror-debug.apk
+          cp app/build/outputs/apk/release/*.apk dist/RetroBit-Mirror-1.0.0.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs dist/RetroBit-Mirror-1.0.0.apk > cert.txt
+          if ! grep -q "RetroBit Mirror" cert.txt; then
+            echo "::error::APK rilis tidak ditandatangani dengan kunci RetroBit"
+            head -20 cert.txt | while IFS= read -r line; do
+              printf '%s\n' "$line" | cut -c1-400 | sed 's/::/:/g' | while IFS= read -r clean; do
+                echo "::error::$clean"
+              done
+            done
+            exit 1
+          fi
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: RetroBit-Mirror-release
+          path: dist/RetroBit-Mirror-1.0.0.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:
           name: RetroBit-Mirror-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: dist/RetroBit-Mirror-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish GitHub Release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          notes='APK rilis RetroBit Mirror 1.0.0 untuk sideload di GT 30 Pro. Kalau Android menolak karena tanda tangan berbeda, hapus pemasangan lama dulu. Jangan unggah ke Play Store.'
+          if gh release view v1.0.0 >/dev/null 2>&1; then
+            gh release upload v1.0.0 dist/RetroBit-Mirror-1.0.0.apk --clobber
+          else
+            gh release create v1.0.0 dist/RetroBit-Mirror-1.0.0.apk \
+              --title "RetroBit Mirror 1.0.0" \
+              --notes "$notes" \
+              --target "${GITHUB_SHA}"
+          fi
