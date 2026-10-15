@@ -8,7 +8,7 @@ import android.media.projection.MediaProjection
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
-import android.view.PixelFormat
+import android.graphics.PixelFormat
 import dev.retrobit.mirror.util.DisplayInfo
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicInteger

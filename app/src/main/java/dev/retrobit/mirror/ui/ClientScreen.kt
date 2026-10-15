@@ -172,7 +172,7 @@ fun PlayScreen(client: MirrorClient, onExit: () -> Unit) {
 
     DisposableEffect(Unit) {
         HardwareInput.captureKeyboard = true
-        HardwareInput.onKey = { action, code, meta, gamepad ->
+        HardwareInput.onKey = onKey@{ action, code, meta, gamepad ->
             val down = action == KeyEvent.ACTION_DOWN
             if (gamepad) {
                 val id = gamepadButton(code) ?: return@onKey
@@ -481,7 +481,7 @@ private fun StickWidget(
                         }
                     ) { change, drag ->
                         change.consume()
-                        val max = size.minDimension / 2f * 0.62f
+                        val max = minOf(size.width, size.height) / 2f * 0.62f
                         knob = androidx.compose.ui.geometry.Offset(
                             (knob.x + drag.x).coerceIn(-max, max),
                             (knob.y + drag.y).coerceIn(-max, max)
