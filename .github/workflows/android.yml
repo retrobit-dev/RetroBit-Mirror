@@ -15,35 +15,51 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK packages
+      - name: Point Gradle at the preinstalled SDK
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if [ ! -d "$SDK/platforms" ]; then
+            echo "::error::Android SDK tidak ketemu di $SDK"
+            exit 1
+          fi
+          echo "sdk.dir=$SDK" > local.properties
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "Using $SDK"
+          ls "$SDK/platforms" | head
 
-      - name: Point Gradle at the SDK
-        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.9"
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace --no-daemon
+        run: |
+          set +e
+          gradle :app:assembleDebug --stacktrace --no-daemon > build.log 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            grep -E "e: |error:|FAILURE|What went wrong|Execution failed|Unresolved reference" build.log \
+              | head -60 \
+              | while IFS= read -r line; do
+                  printf '%s\n' "$line" | cut -c1-500 | sed 's/::/:/g' | while IFS= read -r clean; do
+                    echo "::error::$clean"
+                  done
+                done
+            echo "::error::Gradle exited $code. See the step log for the full stacktrace."
+            exit "$code"
+          fi
 
       - name: Upload APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RetroBit-Mirror-debug
           path: app/build/outputs/apk/debug/*.apk
