@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RetroBit Mirror</string>
+    <string name="accessibility_desc">RetroBit Mirror memakai layanan ini untuk meneruskan ketukan, geseran, dan tombol navigasi dari Huawei MatePad Mini ke layar Infinix GT 30 Pro milikmu. Layanan hanya bekerja saat kamu memulai pantulan. Tidak membaca isi layar dan tidak mengirim data ke internet.</string>
+    <string name="channel_name">Pantulan layar</string>
+    <string name="notif_title">RetroBit Mirror aktif</string>
+    <string name="notif_text">Layar dipantulkan di jaringan lokal. Ketuk untuk kembali.</string>
+    <string name="notif_stop">Berhenti</string>
+</resources>

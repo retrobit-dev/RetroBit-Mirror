@@ -1,0 +1,6 @@
+-keep class dev.retrobit.mirror.input.ShellInputService { *; }
+-keep class dev.retrobit.mirror.IShellInput { *; }
+-keep class dev.retrobit.mirror.IShellInput$Stub { *; }
+-keep class dev.retrobit.mirror.input.RetroBitAccessibilityService { *; }
+-keep class rikka.shizuku.** { *; }
+-keep class moe.shizuku.** { *; }

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07080c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>RetroBit Mirror</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2307080c'/%3E%3Crect x='6' y='5' width='10' height='22' rx='2' fill='%23ff7a1a'/%3E%3Crect x='14' y='8' width='12' height='16' rx='2' fill='%233ee0ff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="gate">
+    <header class="top">
+      <div>
+        <p class="mark">RETROBIT</p>
+        <h1>Mirror</h1>
+      </div>
+      <div class="badges">
+        <span>LAN</span>
+        <span>PIN</span>
+        <span>v1.0</span>
+      </div>
+    </header>
+
+    <p class="lede">Pantulkan Infinix GT 30 Pro ke Huawei MatePad Mini. Gamepad, keyboard, sentuhan, dan GT Trigger — tanpa akun, tanpa server di internet.</p>
+
+    <section class="hero">
+      <article class="phone" aria-label="Pratinjau UI host di GT 30 Pro">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <p class="mark">RETROBIT · HOST</p>
+          <h2>GT 30 Pro</h2>
+          <p class="hint">Pratinjau UI aplikasi Android. Yang asli berjalan di ponsel.</p>
+          <p class="kicker" id="mock-kicker">SIAP DI LAN</p>
+          <p class="big-pin" id="mock-pin">4821</p>
+          <p class="url-line">http://192.168.1.23:28731</p>
+          <button class="go" id="mock-start" type="button">Mulai pantulan</button>
+          <div class="chip-row">
+            <button type="button" class="chip on" data-q="Seimbang">Seimbang</button>
+            <button type="button" class="chip" data-q="Kompetitif">Kompetitif</button>
+            <button type="button" class="chip" data-q="Tajam">Tajam</button>
+          </div>
+          <div class="mini">
+            <b>GT Trigger</b>
+            <p>Sensor di rangka ponsel tetap menembak game. Tablet hanya mengulang koordinat yang sama.</p>
+          </div>
+          <div class="mini">
+            <b>Input</b>
+            <p>Shizuku untuk stick analog. Aksesibilitas hanya cadangan ketuk.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="connect">
+        <p class="kicker">LAYAR PENERIMA</p>
+        <h2>MatePad Mini</h2>
+        <p class="hint" id="connect-hint">Kalau halaman ini dibuka dari ponsel host, masukkan PIN yang tertera di GT 30 Pro.</p>
+        <label>PIN
+          <input id="pin" inputmode="numeric" maxlength="6" placeholder="4 digit" autocomplete="off">
+        </label>
+        <button class="go" id="connect" type="button">Sambungkan</button>
+        <button class="ghost" id="demo" type="button">Coba gamepad — mode demo</button>
+        <p class="status" id="status" role="status"></p>
+        <ol class="steps">
+          <li>Di GT 30 Pro, mulai pantulan dan pilih seluruh layar.</li>
+          <li>Di tablet, buka URL yang muncul di ponsel.</li>
+          <li>Aktifkan Shizuku kalau ingin stick dan keyboard terasa seperti kontrol asli.</li>
+        </ol>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article>
+        <span>01</span>
+        <h3>Host di ponsel</h3>
+        <p>Game berjalan di GT 30 Pro. MediaProjection mengirim H.264 ke jaringan lokal. GT Trigger XOS tidak diblokir.</p>
+      </article>
+      <article>
+        <span>02</span>
+        <h3>Layar di tablet</h3>
+        <p>HarmonyOS 5 membuka halaman ini di browser. Kalau APK bisa dipasang, mode Layar di aplikasi lebih rendah latensi.</p>
+      </article>
+      <article>
+        <span>03</span>
+        <h3>Kontrol</h3>
+        <p>Sentuh, gamepad virtual, stik Bluetooth, keyboard, dan tombol GT L / GT R yang dikalibrasi ke skill.</p>
+      </article>
+    </section>
+    <footer>RetroBit Mirror independen. Infinix, GT Trigger, XOS, Huawei, dan MatePad adalah merek pemiliknya.</footer>
+  </main>
+
+  <section id="stage" hidden>
+    <div class="stage-bar">
+      <button type="button" id="leave">Tutup</button>
+      <p id="stage-meta">Demo</p>
+      <div class="stage-actions">
+        <button type="button" id="cycle">MOBA</button>
+        <button type="button" id="keys-toggle">Keyboard</button>
+        <button type="button" id="pad-toggle">Pad</button>
+        <button type="button" id="edit-toggle">Edit</button>
+        <button type="button" id="full">Layar penuh</button>
+      </div>
+    </div>
+    <p id="banner" hidden></p>
+    <div id="bezel">
+      <div id="screen">
+        <img id="stream" alt="" hidden>
+        <canvas id="view"></canvas>
+        <div id="pad"></div>
+        <i class="hole"></i>
+      </div>
+    </div>
+    <div class="nav-row">
+      <button type="button" data-nav="back">Back</button>
+      <button type="button" data-nav="home">Home</button>
+      <button type="button" data-nav="recents">Recent</button>
+      <button type="button" id="cal-l">Kalibrasi GT L</button>
+      <button type="button" id="cal-r">Kalibrasi GT R</button>
+      <button type="button" id="reset-layout">Reset</button>
+    </div>
+    <div id="keyboard" hidden></div>
+  </section>
+  <script src="app.js"></script>
+</body>
+</html>
