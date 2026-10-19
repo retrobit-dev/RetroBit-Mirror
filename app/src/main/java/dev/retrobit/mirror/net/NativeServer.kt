@@ -34,7 +34,7 @@ class NativeServer(private val session: HostSession) {
         var bound = -1
         for (candidate in preferred until preferred + 12) {
             try {
-                socket.bind(InetSocketAddress(candidate))
+                socket.bind(java.net.InetSocketAddress(java.net.InetAddress.getByName("0.0.0.0"), candidate))
                 bound = candidate
                 break
             } catch (_: Throwable) {

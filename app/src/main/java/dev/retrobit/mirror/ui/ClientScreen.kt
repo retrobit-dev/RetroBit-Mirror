@@ -96,14 +96,14 @@ fun ClientBrowseScreen(client: MirrorClient, onBack: () -> Unit, onConnected: ()
     ) {
         Text("← Peran", color = Amber, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBack))
         Text("Layar MatePad", color = Paper, fontSize = 30.sp, fontWeight = FontWeight.Black)
-        Text("Cari GT 30 Pro di Wi-Fi yang sama. Tablet ini hanya menampilkan, tidak mengontrol.", color = Muted)
+        Text("Cari GT 30 Pro di Wi-Fi yang sama, atau sambungkan tablet ke hotspot ponsel kalau router memblokir.", color = Muted)
         if (stats.detail.isNotBlank()) Text(stats.detail, color = if (stats.phase == "error") Danger else Gold)
 
         Panel(Modifier.fillMaxWidth()) {
             Text(if (hosts.isEmpty()) "Mencari pancaran…" else "Host terlihat", color = Paper, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             if (hosts.isEmpty()) {
-                Text("Kalau tidak muncul, ketik IP manual. Beberapa router memblokir siaran UDP.", color = Muted, fontSize = 13.sp)
+                Text("Memindai jaringan. Kalau tetap kosong, buka URL atau kode QR di GT 30 Pro. Wi-Fi yang sama sering tidak cukup — pakai hotspot ponsel.", color = Muted, fontSize = 13.sp)
             }
             hosts.forEach { host ->
                 Row(

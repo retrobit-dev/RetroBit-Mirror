@@ -13,6 +13,7 @@ import android.util.Log
 import android.view.Surface
 import dev.retrobit.mirror.model.FoundHost
 import dev.retrobit.mirror.net.DiscoveryListener
+import dev.retrobit.mirror.net.LanScan
 import dev.retrobit.mirror.net.MuxWriter
 import dev.retrobit.mirror.net.tune
 import dev.retrobit.mirror.protocol.FrameParser
@@ -54,6 +55,7 @@ class MirrorClient {
     val jpeg = MutableStateFlow<ByteArray?>(null)
 
     private var listener: DiscoveryListener? = null
+    private var lanScan: LanScan? = null
     private var socket: Socket? = null
     private var writer: MuxWriter? = null
     private var readThread: Thread? = null
@@ -70,19 +72,25 @@ class MirrorClient {
 
     fun startScan(context: android.content.Context) {
         stopScan()
-        listener = DiscoveryListener(context) { name, host, tcp, http ->
-            val now = SystemClock.elapsedRealtime()
-            val current = hosts.value.filter { now - it.seenAt < 4500 }.toMutableList()
-            val idx = current.indexOfFirst { it.host == host && it.tcpPort == tcp }
-            val found = FoundHost(name, host, tcp, http, now)
-            if (idx >= 0) current[idx] = found else current += found
-            hosts.value = current.sortedBy { it.name }
-        }.also { it.start() }
+        val found = { name: String, host: String, tcp: Int, http: Int ->
+            synchronized(hosts) {
+                val now = SystemClock.elapsedRealtime()
+                val current = hosts.value.filter { now - it.seenAt < 8000 }.toMutableList()
+                val idx = current.indexOfFirst { it.host == host && it.tcpPort == tcp }
+                val item = FoundHost(name, host, tcp, http, now)
+                if (idx >= 0) current[idx] = item else current += item
+                hosts.value = current.sortedBy { it.name }
+            }
+        }
+        listener = DiscoveryListener(context, found).also { it.start() }
+        lanScan = LanScan(found).also { it.start() }
     }
 
     fun stopScan() {
         listener?.stop()
         listener = null
+        lanScan?.stop()
+        lanScan = null
     }
 
     fun connect(host: String, port: Int, pin: String, name: String) {
@@ -180,7 +188,16 @@ class MirrorClient {
             } catch (t: Throwable) {
                 Log.w(TAG, "connect", t)
                 if (stats.value.phase != "error") {
-                    stats.value = stats.value.copy(phase = "error", detail = t.message ?: "Sambungan putus")
+                    val unreachable = t is java.net.ConnectException ||
+                        t is java.net.SocketTimeoutException ||
+                        t is java.net.NoRouteToHostException ||
+                        t is java.net.UnknownHostException
+                    val detail = if (unreachable) {
+                        "Tidak terjangkau. Router sering memisahkan perangkat di Wi-Fi yang sama. Nyalakan hotspot GT 30 Pro, sambungkan MatePad ke hotspot itu, lalu buka URL di ponsel."
+                    } else {
+                        t.message ?: "Sambungan putus"
+                    }
+                    stats.value = stats.value.copy(phase = "error", detail = detail)
                 }
             } finally {
                 running.set(false)

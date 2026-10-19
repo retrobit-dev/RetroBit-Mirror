@@ -56,6 +56,15 @@ class HostDeck(private val context: Context) {
     fun show(mode: String, hideCenter: Boolean, access: RetroBitAccessibilityService?, includePad: Boolean) {
         hide()
         profile = loadProfile()
+        if (!Prefs.padVisible(context)) {
+            showRestore(access)
+            return
+        }
+        val layout = Prefs.deckLayout(context)
+        if (layout.isNotEmpty()) {
+            showFree(mode, hideCenter, access, includePad, layout)
+            return
+        }
         val sizeContext: Context = access ?: context
         val size = DisplayInfo.currentSize(sizeContext)
         val landscape = size.first > size.second
@@ -68,7 +77,7 @@ class HostDeck(private val context: Context) {
         }
         val panelManager = (if (includePad || access == null) context else access).getSystemService(WindowManager::class.java)
         val excludePad = !includePad && access != null
-        if (access != null && (hideCenter || (mode == ViewMode.EXTENDED && !includePad))) {
+        if (access != null && (hideCenter || mode == ViewMode.EXTENDED)) {
             val cover = coverView(if (hideCenter || mode == ViewMode.EXTENDED) "Layar ada di MatePad" else "Layar penuh ada di MatePad")
             val coverManager = access.getSystemService(WindowManager::class.java)
             place(cover, panelW, 0, size.first - panelW * 2, size.second, touchable = false, excluded = true, manager = coverManager)
@@ -76,6 +85,55 @@ class HostDeck(private val context: Context) {
         place(panel(panelW, size.second, left = true, landscape = landscape), 0, 0, panelW, size.second, true, excludePad, panelManager)
         place(panel(panelW, size.second, left = false, landscape = landscape), size.first - panelW, 0, panelW, size.second, true, excludePad, panelManager)
         wm = panelManager
+        main.post(tick)
+    }
+
+    private fun showRestore(access: RetroBitAccessibilityService?) {
+        val size = DisplayInfo.currentSize(access ?: context)
+        val manager = (access ?: context).getSystemService(WindowManager::class.java)
+        val view = chip("Gamepad") {
+            Prefs.setPadVisible(context, true)
+            main.post { MirrorHostService.setMode(context, Prefs.viewMode(context)) }
+        }
+        place(view, (size.first - dp(96)) / 2, dp(36), dp(96), dp(36), true, access != null, manager)
+    }
+
+    private fun showFree(
+        mode: String,
+        hideCenter: Boolean,
+        access: RetroBitAccessibilityService?,
+        includePad: Boolean,
+        layout: Map<String, Pair<Float, Float>>
+    ) {
+        val sizeContext: Context = access ?: context
+        val size = DisplayInfo.currentSize(sizeContext)
+        val manager = (if (includePad || access == null) context else access).getSystemService(WindowManager::class.java)
+        val excludePad = !includePad && access != null
+        if (access != null && (hideCenter || mode == ViewMode.EXTENDED)) {
+            val cover = coverView("Layar ada di MatePad")
+            val coverManager = access.getSystemService(WindowManager::class.java)
+            val panelW = size.first / 5
+            place(cover, panelW, 0, size.first - panelW * 2, size.second, false, true, coverManager)
+        }
+        profile.controls.forEach { control ->
+            val pos = layout[control.id] ?: (control.ux to control.uy)
+            val box = if (control.kind == "stick" || control.kind == "dpad") dp(108) else dp(64)
+            val view = when (control.kind) {
+                "stick" -> stick(control)
+                "dpad" -> dpad(control)
+                else -> button(control)
+            }
+            val x = (pos.first * size.first - box / 2f).toInt().coerceIn(0, (size.first - box).coerceAtLeast(0))
+            val y = (pos.second * size.second - box / 2f).toInt().coerceIn(0, (size.second - box).coerceAtLeast(0))
+            place(view, x, y, box, box, true, excludePad, manager)
+        }
+        val bar = chip("Tutup pad") {
+            Prefs.setPadVisible(context, false)
+            main.post { MirrorHostService.setMode(context, Prefs.viewMode(context)) }
+        }
+        val chipManager = access?.getSystemService(WindowManager::class.java) ?: manager
+        place(bar, dp(12), dp(36), dp(96), dp(36), true, access != null, chipManager)
+        wm = manager
         main.post(tick)
     }
 
@@ -152,6 +210,10 @@ class HostDeck(private val context: Context) {
         if (left) {
             bar.addView(chip(if (Prefs.hideWhenConnected(context)) "Tampil di HP" else "Sembunyi") {
                 Prefs.setHideWhenConnected(context, !Prefs.hideWhenConnected(context))
+                main.post { MirrorHostService.setMode(context, Prefs.viewMode(context)) }
+            })
+            bar.addView(chip("Tutup pad") {
+                Prefs.setPadVisible(context, false)
                 main.post { MirrorHostService.setMode(context, Prefs.viewMode(context)) }
             })
         } else {

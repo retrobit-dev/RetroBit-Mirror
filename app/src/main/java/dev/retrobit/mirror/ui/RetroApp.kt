@@ -209,6 +209,16 @@ private fun GuideScreen(onBack: () -> Unit) {
             "GT Trigger",
             "Trigger fisik hanya menembak layar ponsel. Mode belah membiarkan tengah terbuka supaya tembakan itu sampai ke game. Jangan tutup titik skill dengan overlay."
         )
+        GuideBlock(
+            "6",
+            "Kalau Wi-Fi yang sama gagal",
+            "Beberapa router tidak mengizinkan ponsel dan tablet saling bicara. Di GT 30 Pro buka Hotspot, sambungkan MatePad ke hotspot itu, lalu pindai kode QR atau buka URL hotspot. PIN tetap diminta."
+        )
+        GuideBlock(
+            "7",
+            "Layout gamepad",
+            "Di host, pilih profil MOBA, FPS, atau Balap. Atur layout dengan menyeret tombol, atau sembunyikan gamepad. Chip Gamepad di atas layar menampilkannya lagi. Reset mengembalikan belah kiri-kanan."
+        )
     }
 }
 

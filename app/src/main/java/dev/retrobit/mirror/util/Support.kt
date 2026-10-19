@@ -11,24 +11,34 @@ import android.util.DisplayMetrics
 import android.view.WindowManager
 import dev.retrobit.mirror.model.MirrorView
 import dev.retrobit.mirror.model.ViewMode
+import org.json.JSONObject
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import kotlin.random.Random
 
+data class LocalAddr(val ip: String, val kind: String, val label: String)
+
 object NetInfo {
-    fun ipv4(): String? {
-        val candidates = ArrayList<Pair<Int, String>>()
-        val interfaces = NetworkInterface.getNetworkInterfaces() ?: return null
+    fun addresses(): List<LocalAddr> {
+        val out = ArrayList<LocalAddr>()
+        val interfaces = NetworkInterface.getNetworkInterfaces() ?: return out
         while (interfaces.hasMoreElements()) {
             val nif = interfaces.nextElement()
             if (!nif.isUp || nif.isLoopback) continue
             val name = nif.name.lowercase()
-            val score = when {
-                name.startsWith("wlan") || name.startsWith("wifi") -> 0
-                name.startsWith("ap") || name.contains("softap") -> 1
-                name.startsWith("eth") -> 2
-                name.startsWith("rmnet") || name.startsWith("ccmni") || name.contains("data") -> 5
-                else -> 3
+            val kind = when {
+                name.startsWith("ap") || name.contains("softap") || name.contains("swlan") || name.contains("tether") || name.matches(Regex("wlan[1-9].*")) -> "hotspot"
+                name.startsWith("rndis") || name.contains("usb") || name.startsWith("ncm") -> "usb"
+                name.startsWith("wlan") || name.startsWith("wifi") || name.startsWith("eth") -> "wifi"
+                name.startsWith("rmnet") || name.startsWith("ccmni") || name.contains("data") -> "cell"
+                else -> "other"
+            }
+            if (kind == "cell") continue
+            val label = when (kind) {
+                "hotspot" -> "Hotspot ponsel"
+                "usb" -> "USB"
+                "wifi" -> "Wi-Fi"
+                else -> "Jaringan"
             }
             val addrs = nif.inetAddresses
             while (addrs.hasMoreElements()) {
@@ -36,12 +46,14 @@ object NetInfo {
                 if (addr is Inet4Address && !addr.isLoopbackAddress) {
                     val host = addr.hostAddress ?: continue
                     if (host.startsWith("169.254.")) continue
-                    candidates += score to host
+                    if (out.none { it.ip == host }) out += LocalAddr(host, kind, label)
                 }
             }
         }
-        return candidates.minByOrNull { it.first }?.second
+        return out.sortedBy { if (it.kind == "hotspot") 0 else if (it.kind == "wifi") 1 else 2 }
     }
+
+    fun ipv4(): String? = addresses().firstOrNull { it.kind == "wifi" }?.ip ?: addresses().firstOrNull()?.ip
 
     fun subnetBroadcast(ipv4: String): String? {
         val parts = ipv4.split(".")
@@ -143,6 +155,33 @@ object Intents {
         }
     }
 
+    fun hotspot(context: Context) {
+        val tries = listOf(
+            Intent("android.settings.TETHER_SETTINGS"),
+            Intent("com.android.settings.WIFI_TETHER_SETTINGS"),
+            Intent(Settings.ACTION_WIRELESS_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+        for (intent in tries) {
+            try {
+                context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return
+            } catch (_: Throwable) {
+            }
+        }
+    }
+
+    fun appDetails(context: Context) {
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:${context.packageName}")
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            context.startActivity(intent)
+        } catch (_: Throwable) {
+        }
+    }
+
     fun overlay(context: Context) {
         if (Build.VERSION.SDK_INT < 23) return
         if (Settings.canDrawOverlays(context)) return
@@ -214,6 +253,42 @@ object Prefs {
 
     fun setMirrorView(context: Context, value: String) {
         sp(context).edit().putString("mirrorView", MirrorView.normalize(value)).apply()
+    }
+
+    fun padVisible(context: Context): Boolean = sp(context).getBoolean("padVisible", true)
+
+    fun setPadVisible(context: Context, on: Boolean) {
+        sp(context).edit().putBoolean("padVisible", on).apply()
+    }
+
+    fun deckLayout(context: Context, profileId: String = activeProfile(context)): Map<String, Pair<Float, Float>> {
+        val raw = sp(context).getString("deckLayout.$profileId", null) ?: return emptyMap()
+        return try {
+            val obj = JSONObject(raw)
+            val out = HashMap<String, Pair<Float, Float>>()
+            val keys = obj.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val item = obj.optJSONObject(key) ?: continue
+                out[key] = item.optDouble("x", 0.5).toFloat().coerceIn(0.04f, 0.96f) to
+                    item.optDouble("y", 0.5).toFloat().coerceIn(0.04f, 0.96f)
+            }
+            out
+        } catch (_: Throwable) {
+            emptyMap()
+        }
+    }
+
+    fun setDeckLayout(context: Context, profileId: String, layout: Map<String, Pair<Float, Float>>) {
+        val obj = JSONObject()
+        layout.forEach { (id, pos) ->
+            obj.put(id, JSONObject().put("x", pos.first.toDouble()).put("y", pos.second.toDouble()))
+        }
+        sp(context).edit().putString("deckLayout.$profileId", obj.toString()).apply()
+    }
+
+    fun clearDeckLayout(context: Context, profileId: String = activeProfile(context)) {
+        sp(context).edit().remove("deckLayout.$profileId").apply()
     }
 
     fun hostName(context: Context): String {

@@ -68,9 +68,9 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           cp app/build/outputs/apk/debug/*.apk dist/RetroBit-Mirror-debug.apk
-          cp app/build/outputs/apk/release/*.apk dist/RetroBit-Mirror-1.4.0.apk
+          cp app/build/outputs/apk/release/*.apk dist/RetroBit-Mirror-1.5.0.apk
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$APKSIGNER" verify --print-certs dist/RetroBit-Mirror-1.4.0.apk > cert.txt
+          "$APKSIGNER" verify --print-certs dist/RetroBit-Mirror-1.5.0.apk > cert.txt
           if ! grep -q "RetroBit Mirror" cert.txt; then
             echo "::error::APK rilis tidak ditandatangani dengan kunci RetroBit"
             head -20 cert.txt | while IFS= read -r line; do
@@ -85,7 +85,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: RetroBit-Mirror-release
-          path: dist/RetroBit-Mirror-1.4.0.apk
+          path: dist/RetroBit-Mirror-1.5.0.apk
           if-no-files-found: error
           retention-days: 90
 
@@ -103,12 +103,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          notes='APK rilis RetroBit Mirror 1.4.0. MatePad bisa menampilkan layar saja, atau layar bersama gamepad. Kontrol tetap di GT 30 Pro. Jangan unggah ke Play Store.'
-          if gh release view v1.4.0 >/dev/null 2>&1; then
-            gh release upload v1.4.0 dist/RetroBit-Mirror-1.4.0.apk --clobber
+          notes='APK rilis RetroBit Mirror 1.5.0. Hotspot dan kode QR kalau Wi-Fi yang sama diblokir. Layout gamepad bisa diatur dan disembunyikan di GT 30 Pro. Kontrol tetap di ponsel. Jangan unggah ke Play Store.'
+          if gh release view v1.5.0 >/dev/null 2>&1; then
+            gh release upload v1.5.0 dist/RetroBit-Mirror-1.5.0.apk --clobber
           else
-            gh release create v1.4.0 dist/RetroBit-Mirror-1.4.0.apk \
-              --title "RetroBit Mirror 1.4.0" \
+            gh release create v1.5.0 dist/RetroBit-Mirror-1.5.0.apk \
+              --title "RetroBit Mirror 1.5.0" \
               --notes "$notes" \
               --target "${GITHUB_SHA}"
           fi

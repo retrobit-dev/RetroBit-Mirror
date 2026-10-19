@@ -1,8 +1,8 @@
 # RetroBit Mirror
 
-Aplikasi native Android (Kotlin) untuk memantulkan layar **Infinix GT 30 Pro** ke **Huawei MatePad Mini**. Game dan semua kontrol ada di ponsel. Tablet hanya menampilkan layar, tanpa gamepad.
+Aplikasi native Android (Kotlin) untuk memantulkan layar **Infinix GT 30 Pro** ke **Huawei MatePad Mini**. Game dan semua kontrol ada di ponsel. Tablet hanya menampilkan. Bisa layar saja, atau layar bersama gamepad, tanpa menerima ketukan.
 
-Semua lalu lintas ada di Wi-Fi lokal. Tidak ada akun, tidak ada server internet.
+Semua lalu lintas lokal: Wi-Fi yang sama, atau hotspot ponsel kalau router memisahkan perangkat. Tidak ada akun, tidak ada server internet.
 
 ## Peran
 
@@ -28,7 +28,8 @@ Di GT 30 Pro ada dua tata letak:
 - Gamepad Bluetooth dan keyboard disambungkan ke ponsel, lalu disuntikkan ke game di ponsel. Tablet tidak menerima input.
 - Profil MOBA, FPS, dan Balap. Tata letak bisa digeser dan disimpan.
 - Tombol Back, Home, Recent, volume.
-- Penemuan host lewat siaran UDP dan NSD, plus sambungan IP manual.
+- Penemuan host lewat siaran UDP, pindai jaringan, dan sambungan IP manual. Kalau router memisahkan perangkat, pakai hotspot ponsel dan kode QR.
+- Layout gamepad di GT 30 Pro bisa digeser, disimpan per profil, atau disembunyikan.
 - PIN sesi. Notifikasi tetap terlihat selama pantulan hidup.
 
 ## GT Trigger
@@ -58,10 +59,10 @@ Tanpa Shizuku, layar tetap bisa dipantulkan. Kontrol analog-nya yang belum layak
 
 Setiap push menjalankan GitHub Actions dan menghasilkan dua APK:
 
-- `RetroBit-Mirror-release` — pasang di ponsel dan tablet. File di dalamnya `RetroBit-Mirror-1.4.0.apk`.
+- `RetroBit-Mirror-release` — pasang di ponsel dan tablet. File di dalamnya `RetroBit-Mirror-1.5.0.apk`.
 - `RetroBit-Mirror-debug` — hanya untuk pengembangan.
 
-Unduh dari tab Actions pada run yang hijau, atau dari [Releases](https://github.com/retrobit-dev/RetroBit-Mirror/releases) kalau run-nya menerbitkan rilis `v1.4.0`.
+Unduh dari tab Actions pada run yang hijau, atau dari [Releases](https://github.com/retrobit-dev/RetroBit-Mirror/releases) kalau run-nya menerbitkan rilis `v1.5.0`.
 
 APK rilis ditandatangani dengan kunci tetap di `signing/`. Build berikutnya bisa dipasang di atas yang lama tanpa hapus data. Kalau sebelumnya terpasang APK debug, Android menolak karena tanda tangannya berbeda: hapus dulu, lalu pasang rilis.
 

@@ -3,6 +3,8 @@ package dev.retrobit.mirror.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +26,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,19 +35,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.retrobit.mirror.host.HostRuntime
+import dev.retrobit.mirror.host.MirrorHostService
 import dev.retrobit.mirror.input.InputHub
 import dev.retrobit.mirror.input.ShizukuGate
 import dev.retrobit.mirror.model.MirrorView
+import dev.retrobit.mirror.model.Profiles
 import dev.retrobit.mirror.model.QualityPreset
 import dev.retrobit.mirror.model.ViewMode
 import dev.retrobit.mirror.util.Intents
+import dev.retrobit.mirror.util.LocalAddr
 import dev.retrobit.mirror.util.NetInfo
 import dev.retrobit.mirror.util.Prefs
+import dev.retrobit.mirror.util.QrCode
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -59,7 +69,18 @@ fun HostScreen(
     var viewMode by rememberSaveable { mutableStateOf(Prefs.viewMode(context)) }
     var mirrorView by rememberSaveable { mutableStateOf(Prefs.mirrorView(context)) }
     var hidePhone by rememberSaveable { mutableStateOf(Prefs.hideWhenConnected(context)) }
+    var padVisible by rememberSaveable { mutableStateOf(Prefs.padVisible(context)) }
+    var profileId by rememberSaveable { mutableStateOf(Prefs.activeProfile(context)) }
+    var editLayout by rememberSaveable { mutableStateOf(false) }
+    var layoutEpoch by rememberSaveable { mutableStateOf(0) }
     var copied by rememberSaveable { mutableStateOf("") }
+    var addrs by remember { mutableStateOf(NetInfo.addresses()) }
+    LaunchedEffect(state.running) {
+        while (true) {
+            addrs = NetInfo.addresses()
+            kotlinx.coroutines.delay(2000)
+        }
+    }
 
     LaunchedEffect(Unit) {
         ShizukuGate.refreshStatus(context)
@@ -67,7 +88,7 @@ fun HostScreen(
         if (!state.running) {
             HostRuntime.update {
                 it.copy(
-                    ip = NetInfo.ipv4() ?: "Tidak ada Wi-Fi",
+                    ip = NetInfo.addresses().firstOrNull()?.ip ?: "Tidak ada Wi-Fi",
                     pin = Prefs.pin(context),
                     preset = Prefs.preset(context),
                     audio = Prefs.audio(context),
@@ -91,7 +112,7 @@ fun HostScreen(
     ) {
         Text("← Peran", color = Amber, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBack))
         Text("Host GT 30 Pro", color = Paper, fontSize = 30.sp, fontWeight = FontWeight.Black)
-        Text("Game tetap di ponsel. MatePad hanya menampilkan layar, tanpa gamepad.", color = Muted, fontSize = 14.sp)
+        Text("Game dan semua input tetap di ponsel. MatePad hanya menampilkan.", color = Muted, fontSize = 14.sp)
 
         if (!state.error.isNullOrBlank()) {
             Panel(Modifier.fillMaxWidth()) {
@@ -134,6 +155,42 @@ fun HostScreen(
                     color = Muted,
                     fontSize = 12.sp
                 )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("Kalau Wi-Fi yang sama gagal, nyalakan hotspot ponsel dan sambungkan MatePad ke hotspot itu. Router sering memisahkan perangkat.", color = Muted, fontSize = 12.sp)
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GhostButton("Hotspot", { Intents.hotspot(context) }, Modifier.weight(1f))
+                GhostButton("Izin jaringan", { Intents.appDetails(context) }, Modifier.weight(1f))
+            }
+            if (state.running) {
+                val shown = if (addrs.isEmpty() && state.ip.contains('.')) {
+                    listOf(LocalAddr(state.ip, "wifi", "Wi-Fi"))
+                } else {
+                    addrs
+                }
+                val qrs = remember(shown.joinToString { it.ip }, state.httpPort) {
+                    shown.associate { addr ->
+                        addr.ip to QrCode.bitmap("http://${addr.ip}:${state.httpPort}", 480)
+                    }
+                }
+                shown.forEach { addr ->
+                    val url = "http://${addr.ip}:${state.httpPort}"
+                    Spacer(Modifier.height(10.dp))
+                    Text(addr.label, color = Paper, fontWeight = FontWeight.SemiBold)
+                    Mono(url, Amber, 13)
+                    qrs[addr.ip]?.let { qr ->
+                        Image(
+                            bitmap = qr.asImageBitmap(),
+                            contentDescription = "Kode QR $url",
+                            modifier = Modifier.size(168.dp).clip(RoundedCornerShape(12.dp))
+                        )
+                    }
+                    GhostButton("Salin ${addr.label}", {
+                        copyText(context, "url", url)
+                        copied = "URL disalin"
+                    })
+                }
             }
         }
 
@@ -216,6 +273,55 @@ fun HostScreen(
             color = Muted,
             fontSize = 12.sp
         )
+
+        Text("Gamepad di ponsel", color = Paper, fontWeight = FontWeight.Bold)
+        Text(
+            if (padVisible) "Gamepad tampil di GT 30 Pro. Atur posisinya di sini, atau sembunyikan kalau menghalangi."
+            else "Gamepad disembunyikan. Chip Gamepad di atas layar mengembalikannya.",
+            color = Muted,
+            fontSize = 12.sp
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Profiles.defaults().filter { it.controls.isNotEmpty() }.forEach { item ->
+                val selected = profileId == item.id
+                Text(
+                    item.name,
+                    color = if (selected) Ink else Paper,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (selected) Amber else androidx.compose.ui.graphics.Color.White.copy(0.06f))
+                        .clickable {
+                            profileId = item.id
+                            Prefs.setActiveProfile(context, item.id)
+                            if (state.running) MirrorHostService.setMode(context, viewMode)
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
+        }
+        GhostButton(if (padVisible) "Sembunyikan gamepad" else "Tampilkan gamepad", {
+            padVisible = !padVisible
+            Prefs.setPadVisible(context, padVisible)
+            if (state.running) MirrorHostService.setMode(context, viewMode)
+        })
+        GhostButton(if (editLayout) "Tutup pengatur layout" else "Atur layout gamepad", { editLayout = !editLayout })
+        if (editLayout) {
+            Text("Seret tombol. Posisi ini hanya di ponsel. Reset mengembalikan belah kiri-kanan.", color = Muted, fontSize = 12.sp)
+            Box(Modifier.fillMaxWidth().height(280.dp)) {
+                key(profileId, layoutEpoch) {
+                    PadLayoutEditor(profileId)
+                }
+            }
+            GhostButton("Reset layout", {
+                Prefs.clearDeckLayout(context, profileId)
+                layoutEpoch += 1
+                if (state.running) MirrorHostService.setMode(context, viewMode)
+            })
+            if (state.running) {
+                GhostButton("Terapkan ke layar", { MirrorHostService.setMode(context, viewMode) })
+            }
+        }
 
         Text("Kualitas", color = Paper, fontWeight = FontWeight.Bold)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

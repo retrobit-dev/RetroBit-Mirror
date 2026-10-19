@@ -45,7 +45,7 @@ class WebPortal(
         var bound = -1
         for (candidate in preferred until preferred + 12) {
             try {
-                socket.bind(InetSocketAddress(candidate))
+                socket.bind(java.net.InetSocketAddress(java.net.InetAddress.getByName("0.0.0.0"), candidate))
                 bound = candidate
                 break
             } catch (_: Throwable) {
@@ -115,6 +115,16 @@ class WebPortal(
             }
             when {
                 method == "GET" && (path == "/" || path == "/index.html") -> write(output, 200, "OK", assets.getValue("index.html"))
+                method == "GET" && path == "/api/hello" -> {
+                    val ui = dev.retrobit.mirror.host.HostRuntime.state.value
+                    val json = org.json.JSONObject()
+                        .put("ok", true)
+                        .put("name", session.hostName)
+                        .put("tcp", ui.tcpPort)
+                        .put("http", ui.httpPort)
+                        .toString()
+                    write(output, 200, "OK", json.toByteArray(), "application/json")
+                }
                 method == "GET" && path == "/app.js" -> write(output, 200, "OK", assets.getValue("app.js"))
                 method == "GET" && path == "/style.css" -> write(output, 200, "OK", assets.getValue("style.css"))
                 method == "POST" && path == "/api/auth" -> auth(output, body)

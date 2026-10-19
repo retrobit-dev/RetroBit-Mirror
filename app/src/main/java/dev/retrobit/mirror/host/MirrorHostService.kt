@@ -169,7 +169,7 @@ class MirrorHostService : Service() {
             watchStats()
             if (Prefs.bubble(this)) showBubble()
 
-            val ip = NetInfo.ipv4() ?: "Wi-Fi mati"
+            val ip = NetInfo.addresses().firstOrNull()?.ip ?: "Wi-Fi mati"
             HostRuntime.update {
                 it.copy(
                     running = true,
@@ -216,7 +216,7 @@ class MirrorHostService : Service() {
                         fps = frames,
                         bitrateKbps = (bytes * 8 / 1000).toInt(),
                         injection = InputHub.injectionName(),
-                        ip = NetInfo.ipv4() ?: it.ip
+                        ip = NetInfo.addresses().firstOrNull()?.ip ?: NetInfo.ipv4() ?: it.ip
                     )
                 }
                 HostRuntime.session?.publishState()
@@ -334,7 +334,10 @@ class MirrorHostService : Service() {
         val includePad = dev.retrobit.mirror.model.MirrorView.includesPad(Prefs.mirrorView(this))
         val canOverlay = Build.VERSION.SDK_INT < 23 || android.provider.Settings.canDrawOverlays(this)
         val hide = Prefs.hideWhenConnected(this) && connected && access
-        val stamp = "${size.first}x${size.second}|${Prefs.viewMode(this)}|$hide|$access|$connected|$includePad|$canOverlay"
+        val padOn = Prefs.padVisible(this)
+        val profileId = Prefs.activeProfile(this)
+        val layout = Prefs.deckLayout(this, profileId).entries.joinToString(";") { "${it.key}:${it.value.first},${it.value.second}" }
+        val stamp = "${size.first}x${size.second}|${Prefs.viewMode(this)}|$hide|$access|$connected|$includePad|$canOverlay|$padOn|$profileId|$layout"
         if (stamp == deckStamp) return
         deckStamp = stamp
         showDeck(Prefs.viewMode(this), hide, includePad)
@@ -343,6 +346,12 @@ class MirrorHostService : Service() {
     private fun showDeck(mode: String, hideCenter: Boolean = false, includePad: Boolean = false) {
         val access = dev.retrobit.mirror.input.RetroBitAccessibilityService.instance
         val canOverlay = Build.VERSION.SDK_INT < 23 || android.provider.Settings.canDrawOverlays(this)
+        if (access == null && !canOverlay) {
+            HostRuntime.update {
+                it.copy(error = "Aktifkan aksesibilitas RetroBit, atau izinkan tampil di atas aplikasi lain, sebelum gamepad bisa ditampilkan.")
+            }
+            return
+        }
         if (includePad && !canOverlay) {
             HostRuntime.update {
                 it.copy(error = "Izinkan tampil di atas aplikasi lain supaya MatePad menampilkan gamepad bersama layar.")

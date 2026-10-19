@@ -56,9 +56,10 @@ class DiscoveryBeacon(
             while (running) {
                 try {
                     send(payload, "255.255.255.255")
-                    val ip = NetInfo.ipv4()
-                    val sub = ip?.let { NetInfo.subnetBroadcast(it) }
-                    if (sub != null) send(payload, sub)
+                    NetInfo.addresses().forEach { addr ->
+                        val sub = NetInfo.subnetBroadcast(addr.ip) ?: return@forEach
+                        send(payload, sub)
+                    }
                 } catch (t: Throwable) {
                     Log.w(TAG, "beacon ${t.message}")
                 }
@@ -152,7 +153,10 @@ class DiscoveryListener(private val context: Context, private val onHost: (name:
         }
         thread = Thread({
             try {
-                val udp = DatagramSocket(Proto.UDP)
+                val udp = DatagramSocket(null as java.net.SocketAddress?)
+                udp.reuseAddress = true
+                udp.broadcast = true
+                udp.bind(java.net.InetSocketAddress(java.net.InetAddress.getByName("0.0.0.0"), Proto.UDP))
                 socket = udp
                 udp.soTimeout = 1000
                 val buf = ByteArray(512)
@@ -165,7 +169,7 @@ class DiscoveryListener(private val context: Context, private val onHost: (name:
                         if (parts.size >= 4 && parts[0] == "RETROBIT1") {
                             val tcp = parts[2].toIntOrNull() ?: continue
                             val http = parts[3].toIntOrNull() ?: Proto.HTTP
-                            val host = packet.address?.hostAddress ?: continue
+                            val host = packet.address?.hostAddress?.removePrefix("::ffff:") ?: continue
                             onHost(parts[1], host, tcp, http)
                         }
                     } catch (_: java.net.SocketTimeoutException) {
