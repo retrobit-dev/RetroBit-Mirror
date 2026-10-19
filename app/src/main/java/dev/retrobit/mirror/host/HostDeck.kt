@@ -278,12 +278,6 @@ class HostDeck(private val context: Context) {
             gravity = Gravity.TOP or Gravity.START
             this.x = x
             this.y = y
-            if (excluded && Build.VERSION.SDK_INT >= 31) {
-                try {
-                    setTrustedOverlay()
-                } catch (_: Throwable) {
-                }
-            }
         }
         wm.addView(view, params)
         windows += view
