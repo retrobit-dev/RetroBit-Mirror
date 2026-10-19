@@ -102,7 +102,7 @@ private fun HomeScreen(running: Boolean, onHost: () -> Unit, onClient: () -> Uni
         Text("Mirror", color = Paper, fontSize = 42.sp, fontWeight = FontWeight.Black, letterSpacing = (-1).sp)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Pantulkan Infinix GT 30 Pro ke Huawei MatePad Mini. Gamepad, keyboard, sentuhan, dan GT Trigger dalam satu sesi LAN.",
+            "MatePad Mini menjadi host. GT 30 Pro menampilkan layar tablet dan mengirim sentuhan, gamepad, serta keyboard.",
             color = Muted,
             fontSize = 15.sp,
             lineHeight = 22.sp
@@ -111,31 +111,47 @@ private fun HomeScreen(running: Boolean, onHost: () -> Unit, onClient: () -> Uni
             Spacer(Modifier.height(16.dp))
             Panel(Modifier.fillMaxWidth()) {
                 Text("Pantulan sedang hidup", color = Ok, fontWeight = FontWeight.Bold)
-                Text("Buka game di ponsel. Layar tetap mengalir di latar depan.", color = Muted, fontSize = 13.sp)
+                Text("Buka aplikasi di tablet. GT 30 Pro menampilkan layarnya.", color = Muted, fontSize = 13.sp)
             }
         }
         Spacer(Modifier.height(22.dp))
-        RoleCard(
-            kicker = if (infinix) "DISARANKAN DI PERANGKAT INI" else "HOST",
-            title = "GT 30 Pro",
-            body = "Tangkap layar, terima input, biarkan GT Trigger fisik tetap menembak game.",
-            accent = Amber,
-            onClick = onHost
-        )
-        Spacer(Modifier.height(12.dp))
-        RoleCard(
-            kicker = if (huawei) "DISARANKAN DI PERANGKAT INI" else "LAYAR",
-            title = "MatePad Mini",
-            body = "Tampilkan mirror, gamepad virtual, keyboard, dan stik Bluetooth. HarmonyOS cukup lewat browser.",
-            accent = Cyan,
-            onClick = onClient
-        )
+        if (!infinix) {
+            HostRoleCard(huawei, onHost)
+            Spacer(Modifier.height(12.dp))
+            ControllerRoleCard(infinix, onClient)
+        } else {
+            ControllerRoleCard(infinix, onClient)
+            Spacer(Modifier.height(12.dp))
+            HostRoleCard(huawei, onHost)
+        }
         Spacer(Modifier.height(18.dp))
         GhostButton("Cara pakai GT Trigger", onGuide, Modifier.fillMaxWidth())
         Spacer(Modifier.height(18.dp))
         Text("LAN saja · PIN · tidak ada akun", color = Muted, fontSize = 12.sp)
         Text(DeviceHints.modelLabel(), color = Muted.copy(alpha = 0.7f), fontSize = 12.sp)
     }
+}
+
+@Composable
+private fun HostRoleCard(huawei: Boolean, onClick: () -> Unit) {
+    RoleCard(
+        kicker = if (huawei) "DISARANKAN DI PERANGKAT INI" else "HOST",
+        title = "MatePad Mini",
+        body = "Tangkap layar tablet dan terima kontrol dari GT 30 Pro. Peran ini harus dipasang sebagai APK.",
+        accent = Amber,
+        onClick = onClick
+    )
+}
+
+@Composable
+private fun ControllerRoleCard(infinix: Boolean, onClick: () -> Unit) {
+    RoleCard(
+        kicker = if (infinix) "DISARANKAN DI PERANGKAT INI" else "KONTROL",
+        title = "GT 30 Pro",
+        body = "Tampilkan layar tablet, lalu kirim sentuhan, gamepad, keyboard, dan tombol GT.",
+        accent = Cyan,
+        onClick = onClick
+    )
 }
 
 @Composable
@@ -170,28 +186,28 @@ private fun GuideScreen(onBack: () -> Unit) {
         Text("Cara main", color = Paper, fontSize = 32.sp, fontWeight = FontWeight.Black)
         GuideBlock(
             "1",
-            "Pasang di GT 30 Pro",
-            "Build APK di Android Studio, lalu sideload ke ponsel. Izinkan pemasangan dari sumber tak dikenal. Buka RetroBit, pilih GT 30 Pro, mulai pantulan, dan pilih seluruh layar."
+            "Host di MatePad Mini",
+            "Pasang APK di tablet, pilih MatePad Mini, mulai pantulan, lalu pilih seluruh layar. HarmonyOS NEXT tidak bisa menjadi host karena tidak memasang APK. Browser tidak bisa menangkap layar."
         )
         GuideBlock(
             "2",
-            "MatePad Mini",
-            "HarmonyOS 5 tidak menjalankan APK Android. Di browser tablet buka http://IP-PONSEL:28731 lalu masukkan PIN. Kalau tabletmu masih bisa pasang APK, pilih peran Layar di aplikasi yang sama — jalur itu lebih rendah latensi."
+            "Kontrol di GT 30 Pro",
+            "Pasang APK yang sama di ponsel dan pilih GT 30 Pro. Cari tablet di Wi-Fi yang sama, atau ketik IP dan PIN. Ponsel menampilkan layar tablet dan mengirim kontrol."
         )
         GuideBlock(
             "3",
-            "Shizuku untuk stik",
-            "Ketukan sederhana bisa lewat aksesibilitas. Stick analog, tombol tahan, dan keyboard butuh Shizuku: pasang Shizuku, mulai lewat debugging nirkabel, lalu izinkan RetroBit. Tanpa ini game tetap kelihatan, tetapi kontrol analog tidak stabil."
+            "Shizuku di tablet",
+            "Suntikan input terjadi di host, yaitu MatePad. Pasang Shizuku di tablet, mulai lewat debugging nirkabel, lalu izinkan RetroBit. Tanpa itu layar tetap kelihatan di ponsel, tetapi stick analog tidak stabil."
         )
         GuideBlock(
             "4",
             "GT Trigger",
-            "Game berjalan di ponsel, jadi sensor GT Trigger XOS tetap menembak layar ponsel. Jangan pasang overlay di atas game. Di MatePad, kalibrasi tombol GT L dan GT R ke koordinat skill yang sama dengan pemetaan XOS. Pegang ponsel sambil melihat tablet, atau taruh ponsel di stand dan main penuh dari tablet."
+            "Sensor GT Trigger ada di rangka ponsel dan hanya menembak layar ponsel, biasanya saat game terbuka di sana. Game yang ada di tablet tidak menerima trigger fisik. Pakai tombol GT L / GT R di ponsel, lalu kalibrasi titik tembaknya ke layar tablet."
         )
         GuideBlock(
             "5",
             "Agar tidak putus",
-            "Samakan Wi-Fi, atau jadikan hotspot ponsel kalau router memisahkan perangkat. Matikan optimalisasi baterai untuk RetroBit. Di Game Space, jangan blokir jaringan aplikasi ini. Suara biarkan dari speaker ponsel supaya tidak gema."
+            "Samakan Wi-Fi, atau jadikan hotspot salah satu perangkat kalau router memisahkan jaringan. Matikan optimalisasi baterai untuk RetroBit di kedua perangkat. Suara biarkan dari speaker tablet supaya tidak gema."
         )
     }
 }

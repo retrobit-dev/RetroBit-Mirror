@@ -19,19 +19,19 @@
       <div class="badges">
         <span>LAN</span>
         <span>PIN</span>
-        <span>v1.0</span>
+        <span>v1.1</span>
       </div>
     </header>
 
-    <p class="lede">Pantulkan Infinix GT 30 Pro ke Huawei MatePad Mini. Gamepad, keyboard, sentuhan, dan GT Trigger — tanpa akun, tanpa server di internet.</p>
+    <p class="lede">MatePad Mini menjadi host. GT 30 Pro menampilkan layarnya dan mengirim kontrol. Tanpa akun, tanpa server di internet.</p>
 
     <section class="hero">
-      <article class="phone" aria-label="Pratinjau UI host di GT 30 Pro">
+      <article class="phone" aria-label="Pratinjau UI host di MatePad Mini">
         <div class="phone-notch"></div>
         <div class="phone-screen">
           <p class="mark">RETROBIT · HOST</p>
-          <h2>GT 30 Pro</h2>
-          <p class="hint">Pratinjau UI aplikasi Android. Yang asli berjalan di ponsel.</p>
+          <h2>MatePad Mini</h2>
+          <p class="hint">Pratinjau UI host. Yang asli berjalan di tablet, dan harus terpasang sebagai APK.</p>
           <p class="kicker" id="mock-kicker">SIAP DI LAN</p>
           <p class="big-pin" id="mock-pin">4821</p>
           <p class="url-line">http://192.168.1.23:28731</p>
@@ -43,7 +43,7 @@
           </div>
           <div class="mini">
             <b>GT Trigger</b>
-            <p>Sensor di rangka ponsel tetap menembak game. Tablet hanya mengulang koordinat yang sama.</p>
+            <p>Sensor di rangka ponsel tidak menembak tablet. Tombol GT di GT 30 Pro yang dikirim ke host.</p>
           </div>
           <div class="mini">
             <b>Input</b>
@@ -53,9 +53,9 @@
       </article>
 
       <article class="connect">
-        <p class="kicker">LAYAR PENERIMA</p>
-        <h2>MatePad Mini</h2>
-        <p class="hint" id="connect-hint">Kalau halaman ini dibuka dari ponsel host, masukkan PIN yang tertera di GT 30 Pro.</p>
+        <p class="kicker">KONTROL DAN LAYAR</p>
+        <h2>GT 30 Pro</h2>
+        <p class="hint" id="connect-hint">Masukkan PIN yang tertera di MatePad. Halaman ini hanya penampil, bukan host.</p>
         <label>PIN
           <input id="pin" inputmode="numeric" maxlength="6" placeholder="4 digit" autocomplete="off">
         </label>
@@ -63,9 +63,9 @@
         <button class="ghost" id="demo" type="button">Coba gamepad — mode demo</button>
         <p class="status" id="status" role="status"></p>
         <ol class="steps">
-          <li>Di GT 30 Pro, mulai pantulan dan pilih seluruh layar.</li>
-          <li>Di tablet, buka URL yang muncul di ponsel.</li>
-          <li>Aktifkan Shizuku kalau ingin stick dan keyboard terasa seperti kontrol asli.</li>
+          <li>Di MatePad, mulai pantulan dan pilih seluruh layar.</li>
+          <li>Di GT 30 Pro, buka URL yang muncul di tablet.</li>
+          <li>Aktifkan Shizuku di tablet kalau ingin stick dan keyboard terasa seperti kontrol asli.</li>
         </ol>
       </article>
     </section>
@@ -73,13 +73,13 @@
     <section class="grid">
       <article>
         <span>01</span>
-        <h3>Host di ponsel</h3>
-        <p>Game berjalan di GT 30 Pro. MediaProjection mengirim H.264 ke jaringan lokal. GT Trigger XOS tidak diblokir.</p>
+        <h3>Host di tablet</h3>
+        <p>MatePad menangkap layar dan menerima input. HarmonyOS yang tidak bisa memasang APK tidak bisa menjadi host.</p>
       </article>
       <article>
         <span>02</span>
-        <h3>Layar di tablet</h3>
-        <p>HarmonyOS 5 membuka halaman ini di browser. Kalau APK bisa dipasang, mode Layar di aplikasi lebih rendah latensi.</p>
+        <h3>Layar di ponsel</h3>
+        <p>GT 30 Pro memasang APK dan memilih peran kontrol. Browser ini cadangan kalau APK di ponsel tidak dipakai.</p>
       </article>
       <article>
         <span>03</span>

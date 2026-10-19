@@ -85,8 +85,8 @@ fun HostScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("← Peran", color = Amber, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBack))
-        Text("Host GT 30 Pro", color = Paper, fontSize = 30.sp, fontWeight = FontWeight.Black)
-        Text("Game tetap di ponsel. Tablet hanya menjadi layar dan kontrol.", color = Muted, fontSize = 14.sp)
+        Text("Host MatePad", color = Paper, fontSize = 30.sp, fontWeight = FontWeight.Black)
+        Text("Layar tablet dikirim ke GT 30 Pro. Kontrol dari ponsel masuk ke tablet ini.", color = Muted, fontSize = 14.sp)
 
         if (!state.error.isNullOrBlank()) {
             Panel(Modifier.fillMaxWidth()) {
@@ -99,7 +99,7 @@ fun HostScreen(
             Spacer(Modifier.height(8.dp))
             Mono(state.pin.ifBlank { "····" }, Gold, 40)
             Spacer(Modifier.height(4.dp))
-            Text("PIN sesi · masukkan ini di MatePad", color = Muted, fontSize = 12.sp)
+            Text("PIN sesi · masukkan ini di GT 30 Pro", color = Muted, fontSize = 12.sp)
             Spacer(Modifier.height(10.dp))
             val url = if (state.ip.contains('.')) "http://${state.ip}:${state.httpPort}" else "Sambungkan Wi-Fi dulu"
             Mono(url, Paper, 14)
@@ -164,7 +164,7 @@ fun HostScreen(
         Text(QualityPreset.fromId(preset).detail, color = Muted, fontSize = 12.sp)
 
         Panel(Modifier.fillMaxWidth()) {
-            ToggleRow("Suara di tablet", "Mati secara bawaan supaya tidak gema dengan speaker ponsel.", audio) {
+            ToggleRow("Suara di ponsel", "Mati secara bawaan supaya tidak gema dengan speaker tablet.", audio) {
                 audio = it
                 Prefs.setAudio(context, it)
             }
@@ -229,7 +229,7 @@ private fun InjectionCard() {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Untuk MLBB, FF, atau FPS, hidupkan Shizuku. Aksesibilitas hanya andal untuk ketukan tunggal.",
+            "Shizuku dipasang di tablet ini, karena suntikan input terjadi di host. Aksesibilitas hanya andal untuk ketukan tunggal.",
             color = Muted,
             fontSize = 13.sp
         )
@@ -251,24 +251,24 @@ private fun GtCard() {
     Panel(Modifier.fillMaxWidth()) {
         Text("GT TRIGGER", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
         Spacer(Modifier.height(6.dp))
-        Text("Sensor di rangka ponsel, bukan API publik.", color = Paper, fontWeight = FontWeight.Bold)
+        Text("Sensor itu ada di GT 30 Pro, bukan di tablet.", color = Paper, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         Text(
-            "XOS menyuntik ketukan GT Trigger langsung ke game. RetroBit tidak menutup sensor itu. Saat mirror hidup, tetap pegang GT 30 Pro kalau ingin trigger fisik, sambil melihat MatePad.",
+            "XOS hanya menembak layar ponsel, dan biasanya hanya saat game terbuka di ponsel. Karena yang dipantulkan adalah tablet, trigger fisik tidak masuk ke host.",
             color = Muted,
             fontSize = 13.sp,
             lineHeight = 19.sp
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Di luar game, biasanya hanya trigger di atas volume yang aktif dan butuh ketuk ganda. Di dalam game, keduanya aktif. Petakan di Game Space ke skill yang sama dengan tombol GT L / GT R di tablet.",
+            "Di GT 30 Pro, pakai tombol GT L / GT R. Kalibrasi titik tembaknya ke posisi yang diinginkan di layar tablet.",
             color = Muted,
             fontSize = 13.sp,
             lineHeight = 19.sp
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Jangan hidupkan gelembung STOP kalau posisinya menutup tombol game. Overlay menelan ketukan GT Trigger.",
+            "Jangan hidupkan gelembung STOP kalau posisinya menutup aplikasi di tablet.",
             color = Gold,
             fontSize = 13.sp
         )

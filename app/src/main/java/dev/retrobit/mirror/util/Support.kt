@@ -86,6 +86,12 @@ object DeviceHints {
     }
 
     fun modelLabel(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+
+    fun deviceName(): String = when {
+        isHuawei() -> "MatePad Mini"
+        isInfinix() -> "GT 30 Pro"
+        else -> Build.MODEL.ifBlank { "RetroBit" }
+    }
 }
 
 object Intents {
@@ -185,7 +191,7 @@ object Prefs {
     fun hostName(context: Context): String {
         val saved = sp(context).getString("hostName", null)
         if (!saved.isNullOrBlank()) return saved
-        return if (DeviceHints.isInfinix()) "GT 30 Pro" else Build.MODEL
+        return DeviceHints.deviceName()
     }
 
     fun setHostName(context: Context, name: String) {

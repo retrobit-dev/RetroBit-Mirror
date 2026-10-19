@@ -63,6 +63,7 @@ import dev.retrobit.mirror.model.Control
 import dev.retrobit.mirror.model.Profile
 import dev.retrobit.mirror.model.Profiles
 import dev.retrobit.mirror.protocol.Proto
+import dev.retrobit.mirror.util.DeviceHints
 import dev.retrobit.mirror.util.Prefs
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -90,8 +91,8 @@ fun ClientBrowseScreen(client: MirrorClient, onBack: () -> Unit, onConnected: ()
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("← Peran", color = Amber, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBack))
-        Text("Layar MatePad", color = Paper, fontSize = 30.sp, fontWeight = FontWeight.Black)
-        Text("Cari host di Wi-Fi yang sama, atau ketik IP GT 30 Pro.", color = Muted)
+        Text("Kontrol GT 30 Pro", color = Paper, fontSize = 30.sp, fontWeight = FontWeight.Black)
+        Text("Cari host MatePad di Wi-Fi yang sama, atau ketik IP tablet.", color = Muted)
         if (stats.detail.isNotBlank()) Text(stats.detail, color = if (stats.phase == "error") Danger else Gold)
 
         Panel(Modifier.fillMaxWidth()) {
@@ -108,7 +109,7 @@ fun ClientBrowseScreen(client: MirrorClient, onBack: () -> Unit, onConnected: ()
                         .clickable {
                             Prefs.setLastHost(context, host.host)
                             Prefs.setLastPin(context, pin)
-                            client.connect(host.host, host.tcpPort, pin, "MatePad")
+                            client.connect(host.host, host.tcpPort, pin, DeviceHints.deviceName())
                         }
                         .padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -146,10 +147,10 @@ fun ClientBrowseScreen(client: MirrorClient, onBack: () -> Unit, onConnected: ()
             if (host.isNotBlank() && pin.length >= 4) {
                 Prefs.setLastHost(context, host)
                 Prefs.setLastPin(context, pin)
-                client.connect(host, port, pin, "MatePad")
+                client.connect(host, port, pin, DeviceHints.deviceName())
             }
         }, Modifier.fillMaxWidth(), enabled = pin.length >= 4 && manual.isNotBlank())
-        Text("HarmonyOS 5: kalau APK ini tidak terpasang, pakai browser ke port 28731. Halaman itu ada di APK host.", color = Muted, fontSize = 12.sp)
+        Text("Host harus APK di MatePad. Browser tidak bisa menangkap layar tablet. Shizuku juga dipasang di tablet, bukan di ponsel.", color = Muted, fontSize = 12.sp)
     }
 }
 
@@ -327,7 +328,7 @@ fun PlayScreen(client: MirrorClient, onExit: () -> Unit) {
             }
             if (stats.injection == "none" || stats.injection == "accessibility") {
                 Text(
-                    if (stats.injection == "none") "Host belum punya metode input. Aktifkan Shizuku di GT 30 Pro."
+                    if (stats.injection == "none") "Host belum punya metode input. Aktifkan Shizuku di MatePad."
                     else "Host hanya aksesibilitas. Stick analog butuh Shizuku.",
                     color = Gold,
                     fontSize = 12.sp,

@@ -135,13 +135,13 @@ function banner() {
   }
   if (state.demo) {
     el.hidden = false;
-    el.textContent = "Mode demo — gerakan stick dan tombol GT di sini. Sambungan asli butuh APK di GT 30 Pro.";
+    el.textContent = "Mode demo — gerakan stick dan tombol GT di sini. Sambungan asli butuh APK host di MatePad.";
     return;
   }
   if (state.injection === "none" || state.injection === "accessibility") {
     el.hidden = false;
     el.textContent = state.injection === "none"
-      ? "Host belum punya metode input. Aktifkan Shizuku di GT 30 Pro."
+      ? "Host belum punya metode input. Aktifkan Shizuku di MatePad."
       : "Host hanya aksesibilitas. Stick analog butuh Shizuku.";
     return;
   }
@@ -548,7 +548,7 @@ async function connect() {
     setStatus("");
   } catch (err) {
     if (String(err.message) === "preview" || err instanceof TypeError) {
-      setStatus("Ini pratinjau, bukan siaran dari GT 30 Pro. Pakai mode demo, atau buka URL yang tertulis di ponsel.");
+      setStatus("Ini pratinjau, bukan siaran dari MatePad. Pakai mode demo, atau buka URL yang tertulis di tablet.");
     } else {
       setStatus(err.message || "Gagal sambung");
     }
@@ -799,7 +799,7 @@ $("demo").addEventListener("click", () => {
   state.videoMode = "demo";
   state.aspect = 20 / 9;
   showStage();
-  $("stage-meta").textContent = "Demo · MatePad";
+  $("stage-meta").textContent = "Demo · GT 30 Pro";
 });
 $("leave").addEventListener("click", leaveStage);
 $("cycle").addEventListener("click", () => {
@@ -856,11 +856,11 @@ setInterval(() => {
 }, 1000);
 
 if (location.port === "28731") {
-  $("connect-hint").textContent = "Halaman ini disajikan oleh GT 30 Pro. Masukkan PIN dari aplikasi host.";
+  $("connect-hint").textContent = "Halaman ini disajikan oleh MatePad. Masukkan PIN dari aplikasi host.";
 } else {
   $("demo").className = "go";
   $("connect").className = "ghost";
-  $("connect-hint").textContent = "Pratinjau di browser ini bukan siaran ponsel. Tombol demo menjalankan kontrolnya. Di MatePad asli, halaman ini dibuka dari IP GT 30 Pro.";
+  $("connect-hint").textContent = "Pratinjau ini bukan siaran tablet. Di GT 30 Pro, buka URL yang tertulis di MatePad, atau pakai peran kontrol di APK.";
 }
 if (new URLSearchParams(location.search).has("demo")) {
   $("demo").click();

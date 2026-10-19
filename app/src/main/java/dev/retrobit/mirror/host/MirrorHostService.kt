@@ -176,7 +176,11 @@ class MirrorHostService : Service() {
                     injection = InputHub.injectionName(),
                     shizuku = ShizukuGate.status,
                     accessibility = dev.retrobit.mirror.input.RetroBitAccessibilityService.instance != null,
-                    hint = if (DeviceHints.isInfinix()) "GT Trigger fisik tetap aktif di ponsel ini." else null
+                    hint = when {
+                        DeviceHints.isInfinix() -> "Ponsel ini sedang menjadi host. GT Trigger hanya menembak layar ponsel, bukan tablet."
+                        DeviceHints.isHuawei() -> "GT 30 Pro menampilkan layar ini dan mengirim kontrol. Shizuku harus aktif di tablet."
+                        else -> null
+                    }
                 )
             }
             updateNotification()
