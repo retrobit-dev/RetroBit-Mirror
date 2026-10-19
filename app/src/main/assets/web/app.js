@@ -1,3 +1,4 @@
+const DISPLAY_ONLY = true;
 const PIDS = { ls: 3, rs: 4, a: 5, b: 6, x: 7, y: 8, lb: 10, rb: 11, lt: 12, rt: 13, start: 14, select: 15, l3: 16, r3: 17, du: 18, dd: 19, dl: 20, dr: 21 };
 const DEAD = 0.14;
 
@@ -61,7 +62,7 @@ const state = {
   ws: null,
   profiles: loadProfiles(),
   profileId: localStorage.getItem("rb.profile") || "moba",
-  showPad: true,
+  showPad: false,
   editing: false,
   calibrate: null,
   aspect: 20 / 9,
@@ -289,6 +290,7 @@ screen.addEventListener("pointercancel", onScreen);
 
 const touchSlots = new Map();
 function onScreen(e) {
+  if (DISPLAY_ONLY) return;
   if (e.target.closest(".ctrl")) return;
   const p = norm(e);
   if (state.calibrate && e.type === "pointerup") {
@@ -856,12 +858,17 @@ setInterval(() => {
 }, 1000);
 
 if (location.port === "28731") {
-  $("connect-hint").textContent = "Halaman ini disajikan oleh MatePad. Masukkan PIN dari aplikasi host.";
+  $("connect-hint").textContent = "Halaman ini disajikan oleh GT 30 Pro. Masukkan PIN. Kontrol tidak ada di halaman ini.";
 } else {
   $("demo").className = "go";
   $("connect").className = "ghost";
-  $("connect-hint").textContent = "Pratinjau ini bukan siaran tablet. Di GT 30 Pro, buka URL yang tertulis di MatePad, atau pakai peran kontrol di APK.";
+  $("connect-hint").textContent = "Pratinjau ini bukan siaran ponsel. Di MatePad, buka URL yang tertulis di GT 30 Pro.";
 }
+["pad-toggle", "edit-toggle", "keys-toggle", "cycle", "cal-l", "cal-r", "reset-layout"].forEach((id) => {
+  const node = $(id);
+  if (node) node.hidden = true;
+});
+document.querySelectorAll("[data-nav]").forEach((node) => { node.hidden = true; });
 if (new URLSearchParams(location.search).has("demo")) {
   $("demo").click();
 }

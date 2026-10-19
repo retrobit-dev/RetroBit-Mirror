@@ -29,6 +29,7 @@ import dev.retrobit.mirror.capture.ScreenEncoder
 import dev.retrobit.mirror.input.InputHub
 import dev.retrobit.mirror.input.ShizukuGate
 import dev.retrobit.mirror.model.QualityPreset
+import dev.retrobit.mirror.model.ViewMode
 import dev.retrobit.mirror.net.DiscoveryBeacon
 import dev.retrobit.mirror.net.NativeServer
 import dev.retrobit.mirror.net.WebPortal
@@ -51,6 +52,7 @@ class MirrorHostService : Service() {
     private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
     private var cpuLock: android.os.PowerManager.WakeLock? = null
     private var bubble: TextView? = null
+    private var deck: HostDeck? = null
     private val main = Handler(Looper.getMainLooper())
     private var displayListener: DisplayManager.DisplayListener? = null
     private val frameCount = AtomicInteger(0)
@@ -71,6 +73,15 @@ class MirrorHostService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 shutdown(null)
+                return START_NOT_STICKY
+            }
+            ACTION_MODE -> {
+                val mode = ViewMode.normalize(intent.getStringExtra(EXTRA_MODE))
+                Prefs.setViewMode(this, mode)
+                if (HostRuntime.session != null) {
+                    restartEncoder()
+                    showDeck(mode)
+                }
                 return START_NOT_STICKY
             }
             ACTION_START -> {
@@ -126,26 +137,8 @@ class MirrorHostService : Service() {
             beacon.start()
             this.beacon = beacon
 
-            val encoder = ScreenEncoder(
-                projection = projection,
-                displayW = size.first,
-                displayH = size.second,
-                dpi = DisplayInfo.dpi(this),
-                preset = preset,
-                onConfig = { w, h, csd ->
-                    session.publishConfig(w, h, csd)
-                    HostRuntime.update { it.copy(videoLabel = "${w}×${h}") }
-                },
-                onFrame = { bytes, key, pts ->
-                    frameCount.incrementAndGet()
-                    byteCount.addAndGet(bytes.size.toLong())
-                    session.publishVideo(bytes, key, pts)
-                },
-                onError = { message -> HostRuntime.update { it.copy(error = message) } }
-            )
-            session.requestKeyframe = { encoder.requestSync() }
-            encoder.start()
-            this.encoder = encoder
+            startEncoder(session, preset)
+            showDeck(Prefs.viewMode(this))
 
             if (audioOn) {
                 val capture = AudioCapture(
@@ -176,10 +169,11 @@ class MirrorHostService : Service() {
                     injection = InputHub.injectionName(),
                     shizuku = ShizukuGate.status,
                     accessibility = dev.retrobit.mirror.input.RetroBitAccessibilityService.instance != null,
-                    hint = when {
-                        DeviceHints.isInfinix() -> "Ponsel ini sedang menjadi host. GT Trigger hanya menembak layar ponsel, bukan tablet."
-                        DeviceHints.isHuawei() -> "GT 30 Pro menampilkan layar ini dan mengirim kontrol. Shizuku harus aktif di tablet."
-                        else -> null
+                    viewMode = Prefs.viewMode(this),
+                    hint = if (DeviceHints.isHuawei()) {
+                        "Perangkat ini hanya menampilkan. Semua kontrol ada di GT 30 Pro."
+                    } else {
+                        "Game tetap di ponsel. MatePad hanya menerima layar, tanpa gamepad."
                     }
                 )
             }
@@ -231,23 +225,37 @@ class MirrorHostService : Service() {
     }
 
     private val restartCapture = Runnable {
-        val session = HostRuntime.session ?: return@Runnable
+        if (HostRuntime.session == null) return@Runnable
         val size = DisplayInfo.realSize(this)
         if (size.first == InputHub.displayW && size.second == InputHub.displayH) return@Runnable
         InputHub.displayW = size.first
         InputHub.displayH = size.second
+        restartEncoder()
+    }
+
+    private fun restartEncoder() {
+        val session = HostRuntime.session ?: return
+        val projection = projection ?: return
         val preset = QualityPreset.fromId(HostRuntime.state.value.preset)
-        val projection = projection ?: return@Runnable
         try {
             encoder?.stop()
         } catch (_: Throwable) {
         }
+        startEncoder(session, preset)
+        HostRuntime.update { it.copy(viewMode = Prefs.viewMode(this)) }
+        session.publishState()
+    }
+
+    private fun startEncoder(session: HostSession, preset: QualityPreset) {
+        val projection = projection ?: return
+        val mode = Prefs.viewMode(this)
         val next = ScreenEncoder(
-            projection,
-            size.first,
-            size.second,
-            DisplayInfo.dpi(this),
-            preset,
+            projection = projection,
+            displayW = InputHub.displayW,
+            displayH = InputHub.displayH,
+            dpi = DisplayInfo.dpi(this),
+            preset = preset,
+            cropFraction = ViewMode.crop(mode),
             onConfig = { w, h, csd ->
                 session.publishConfig(w, h, csd)
                 HostRuntime.update { it.copy(videoLabel = "${w}×${h}") }
@@ -262,7 +270,15 @@ class MirrorHostService : Service() {
         session.requestKeyframe = { next.requestSync() }
         next.start()
         encoder = next
-        session.publishState()
+    }
+
+    private fun showDeck(mode: String) {
+        if (Build.VERSION.SDK_INT >= 23 && !android.provider.Settings.canDrawOverlays(this)) {
+            HostRuntime.update { it.copy(error = "Izinkan tampil di atas aplikasi lain supaya gamepad muncul di pinggir layar.") }
+            return
+        }
+        val shown = deck ?: HostDeck(this).also { deck = it }
+        main.post { shown.show(mode) }
     }
 
     private fun shutdown(error: String?) {
@@ -276,6 +292,8 @@ class MirrorHostService : Service() {
         }
         displayListener = null
         hideBubble()
+        deck?.hide()
+        deck = null
         try {
             beacon?.stop()
         } catch (_: Throwable) {
@@ -443,6 +461,16 @@ class MirrorHostService : Service() {
         private const val NOTIF_ID = 42
         const val ACTION_START = "dev.retrobit.mirror.START"
         const val ACTION_STOP = "dev.retrobit.mirror.STOP"
+        const val ACTION_MODE = "dev.retrobit.mirror.MODE"
+        const val EXTRA_MODE = "mode"
+
+        fun setMode(context: Context, mode: String) {
+            context.startService(
+                Intent(context, MirrorHostService::class.java)
+                    .setAction(ACTION_MODE)
+                    .putExtra(EXTRA_MODE, mode)
+            )
+        }
         const val EXTRA_CODE = "code"
         const val EXTRA_DATA = "data"
         const val EXTRA_PRESET = "preset"

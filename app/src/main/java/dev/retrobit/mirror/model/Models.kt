@@ -3,6 +3,15 @@ package dev.retrobit.mirror.model
 import org.json.JSONArray
 import org.json.JSONObject
 
+object ViewMode {
+    const val SPLIT = "SPLIT"
+    const val EXTENDED = "EXTENDED"
+
+    fun normalize(mode: String?): String = if (mode == EXTENDED) EXTENDED else SPLIT
+
+    fun crop(mode: String): Float = if (mode == EXTENDED) 0f else 0.25f
+}
+
 enum class QualityPreset(
     val id: String,
     val label: String,
@@ -60,7 +69,8 @@ data class HostUiState(
     val accessibility: Boolean = false,
     val error: String? = null,
     val lastInput: String = "Belum ada input",
-    val hint: String? = null
+    val hint: String? = null,
+    val viewMode: String = ViewMode.SPLIT
 )
 
 data class FoundHost(

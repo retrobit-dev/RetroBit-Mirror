@@ -91,8 +91,8 @@ fun ClientBrowseScreen(client: MirrorClient, onBack: () -> Unit, onConnected: ()
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("← Peran", color = Amber, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBack))
-        Text("Kontrol GT 30 Pro", color = Paper, fontSize = 30.sp, fontWeight = FontWeight.Black)
-        Text("Cari host MatePad di Wi-Fi yang sama, atau ketik IP tablet.", color = Muted)
+        Text("Layar MatePad", color = Paper, fontSize = 30.sp, fontWeight = FontWeight.Black)
+        Text("Cari GT 30 Pro di Wi-Fi yang sama. Tablet ini hanya menampilkan, tidak mengontrol.", color = Muted)
         if (stats.detail.isNotBlank()) Text(stats.detail, color = if (stats.phase == "error") Danger else Gold)
 
         Panel(Modifier.fillMaxWidth()) {
@@ -150,7 +150,7 @@ fun ClientBrowseScreen(client: MirrorClient, onBack: () -> Unit, onConnected: ()
                 client.connect(host, port, pin, DeviceHints.deviceName())
             }
         }, Modifier.fillMaxWidth(), enabled = pin.length >= 4 && manual.isNotBlank())
-        Text("Host harus APK di MatePad. Browser tidak bisa menangkap layar tablet. Shizuku juga dipasang di tablet, bukan di ponsel.", color = Muted, fontSize = 12.sp)
+        Text("Gamepad, keyboard, dan GT Trigger ada di GT 30 Pro. Jangan harapkan kontrol di tablet.", color = Muted, fontSize = 12.sp)
     }
 }
 
@@ -160,7 +160,7 @@ fun PlayScreen(client: MirrorClient, onExit: () -> Unit) {
     val stats by client.stats.collectAsState()
     var profiles by remember { mutableStateOf(Profiles.fromJson(Prefs.profiles(context))) }
     var profileId by remember { mutableStateOf(Prefs.activeProfile(context)) }
-    var showPad by remember { mutableStateOf(profileId != "touch") }
+    var showPad by remember { mutableStateOf(false) }
     var showKeys by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var calibrate by remember { mutableStateOf<String?>(null) }
@@ -172,16 +172,8 @@ fun PlayScreen(client: MirrorClient, onExit: () -> Unit) {
     val showPadNow = rememberUpdatedState(showPad)
 
     DisposableEffect(Unit) {
-        HardwareInput.captureKeyboard = true
-        HardwareInput.onKey = onKey@{ action, code, meta, gamepad ->
-            val down = action == KeyEvent.ACTION_DOWN
-            if (gamepad) {
-                val id = gamepadButton(code) ?: return@onKey
-                if (action == KeyEvent.ACTION_DOWN || action == KeyEvent.ACTION_UP) pad.setButton(id, down)
-            } else if (HardwareInput.captureKeyboard) {
-                client.sendKey(if (down) "down" else "up", code, meta, false)
-            }
-        }
+        HardwareInput.captureKeyboard = false
+        HardwareInput.onKey = { _, _, _, _ -> }
         HardwareInput.onAxes = { lx, ly, rx, ry, lt, rt, hatX, hatY ->
             if (!pad.touchLs) {
                 pad.lx = lx
@@ -244,7 +236,7 @@ fun PlayScreen(client: MirrorClient, onExit: () -> Unit) {
                         view.surfaceTexture?.setDefaultBufferSize(stats.videoW.coerceAtLeast(2), stats.videoH.coerceAtLeast(2))
                     }
                 )
-                if (!editing) {
+                if (false) {
                     TouchLayer(
                         Modifier.fillMaxSize().zIndex(1f),
                         key = calibrate ?: "",
@@ -314,27 +306,14 @@ fun PlayScreen(client: MirrorClient, onExit: () -> Unit) {
                     fontSize = 12.sp
                 )
                 Spacer(Modifier.weight(1f))
-                Chip(profile.name) {
-                    val idx = profiles.indexOfFirst { it.id == profileId }.coerceAtLeast(0)
-                    val next = profiles[(idx + 1) % profiles.size]
-                    profileId = next.id
-                    Prefs.setActiveProfile(context, next.id)
-                    showPad = next.id != "touch"
-                    mapper.reset()
-                }
-                Chip("⌨") { showKeys = !showKeys }
-                Chip(if (showPad) "Pad" else "Pad+") { showPad = !showPad }
-                Chip(if (editing) "Selesai" else "Edit") { editing = !editing }
+                Text("Layar saja", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
-            if (stats.injection == "none" || stats.injection == "accessibility") {
-                Text(
-                    if (stats.injection == "none") "Host belum punya metode input. Aktifkan Shizuku di MatePad."
-                    else "Host hanya aksesibilitas. Stick analog butuh Shizuku.",
-                    color = Gold,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 6.dp)
-                )
-            }
+            Text(
+                "Kontrol ada di GT 30 Pro. Tablet ini tidak mengirim sentuhan atau gamepad.",
+                color = Muted,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 6.dp)
+            )
             if (calibrate != null) {
                 Text("Ketuk layar game untuk titik tembak $calibrate", color = Gold, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
             }
@@ -353,16 +332,7 @@ fun PlayScreen(client: MirrorClient, onExit: () -> Unit) {
             }
         }
 
-        Row(
-            Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp).zIndex(4f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Chip("Back") { client.sendNav("back") }
-            Chip("Home") { client.sendNav("home") }
-            Chip("Recent") { client.sendNav("recents") }
-            Chip("Vol−") { client.sendNav("volumeDown") }
-            Chip("Vol+") { client.sendNav("volumeUp") }
-        }
+
 
         if (showKeys) {
             KeyboardSheet(

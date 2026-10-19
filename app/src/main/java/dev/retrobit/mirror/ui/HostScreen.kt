@@ -38,6 +38,7 @@ import dev.retrobit.mirror.host.HostRuntime
 import dev.retrobit.mirror.input.InputHub
 import dev.retrobit.mirror.input.ShizukuGate
 import dev.retrobit.mirror.model.QualityPreset
+import dev.retrobit.mirror.model.ViewMode
 import dev.retrobit.mirror.util.Intents
 import dev.retrobit.mirror.util.NetInfo
 import dev.retrobit.mirror.util.Prefs
@@ -54,6 +55,7 @@ fun HostScreen(
     var preset by rememberSaveable { mutableStateOf(Prefs.preset(context)) }
     var audio by rememberSaveable { mutableStateOf(Prefs.audio(context)) }
     var bubble by rememberSaveable { mutableStateOf(Prefs.bubble(context)) }
+    var viewMode by rememberSaveable { mutableStateOf(Prefs.viewMode(context)) }
     var copied by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -85,8 +87,8 @@ fun HostScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("← Peran", color = Amber, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBack))
-        Text("Host MatePad", color = Paper, fontSize = 30.sp, fontWeight = FontWeight.Black)
-        Text("Layar tablet dikirim ke GT 30 Pro. Kontrol dari ponsel masuk ke tablet ini.", color = Muted, fontSize = 14.sp)
+        Text("Host GT 30 Pro", color = Paper, fontSize = 30.sp, fontWeight = FontWeight.Black)
+        Text("Game tetap di ponsel. MatePad hanya menampilkan layar, tanpa gamepad.", color = Muted, fontSize = 14.sp)
 
         if (!state.error.isNullOrBlank()) {
             Panel(Modifier.fillMaxWidth()) {
@@ -99,7 +101,7 @@ fun HostScreen(
             Spacer(Modifier.height(8.dp))
             Mono(state.pin.ifBlank { "····" }, Gold, 40)
             Spacer(Modifier.height(4.dp))
-            Text("PIN sesi · masukkan ini di GT 30 Pro", color = Muted, fontSize = 12.sp)
+            Text("PIN sesi · masukkan ini di MatePad", color = Muted, fontSize = 12.sp)
             Spacer(Modifier.height(10.dp))
             val url = if (state.ip.contains('.')) "http://${state.ip}:${state.httpPort}" else "Sambungkan Wi-Fi dulu"
             Mono(url, Paper, 14)
@@ -138,9 +140,43 @@ fun HostScreen(
             PrimaryButton("Mulai pantulan", {
                 Prefs.setPreset(context, preset)
                 Prefs.setAudio(context, audio)
+                Prefs.setViewMode(context, viewMode)
+                if (android.os.Build.VERSION.SDK_INT >= 23 && !android.provider.Settings.canDrawOverlays(context)) {
+                    Intents.overlay(context)
+                }
                 onStart(QualityPreset.fromId(preset), audio)
             }, Modifier.fillMaxWidth())
         }
+
+        Text("Tata letak di ponsel", color = Paper, fontWeight = FontWeight.Bold)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(ViewMode.SPLIT to "Belah", ViewMode.EXTENDED to "Layar tambahan").forEach { (id, label) ->
+                val selected = viewMode == id
+                Text(
+                    label,
+                    color = if (selected) Ink else Paper,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (selected) Cyan else androidx.compose.ui.graphics.Color.White.copy(0.06f))
+                        .clickable {
+                            viewMode = id
+                            Prefs.setViewMode(context, id)
+                            if (state.running) dev.retrobit.mirror.host.MirrorHostService.setMode(context, id)
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
+        }
+        Text(
+            if (viewMode == ViewMode.EXTENDED) {
+                "Ponsel hanya kontrol. Pada dialog tangkap layar pilih aplikasinya, bukan seluruh layar, supaya MatePad tidak ikut merekam gamepad."
+            } else {
+                "Kiri dan kanan 1/4 untuk kontrol. Tengah 1/2 tetap game. MatePad hanya menerima bagian tengah itu."
+            },
+            color = Muted,
+            fontSize = 12.sp
+        )
 
         Text("Kualitas", color = Paper, fontWeight = FontWeight.Bold)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -164,7 +200,7 @@ fun HostScreen(
         Text(QualityPreset.fromId(preset).detail, color = Muted, fontSize = 12.sp)
 
         Panel(Modifier.fillMaxWidth()) {
-            ToggleRow("Suara di ponsel", "Mati secara bawaan supaya tidak gema dengan speaker tablet.", audio) {
+            ToggleRow("Suara di tablet", "Mati secara bawaan supaya tidak gema dengan speaker ponsel.", audio) {
                 audio = it
                 Prefs.setAudio(context, it)
             }
@@ -229,7 +265,7 @@ private fun InjectionCard() {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Shizuku dipasang di tablet ini, karena suntikan input terjadi di host. Aksesibilitas hanya andal untuk ketukan tunggal.",
+            "Shizuku dipasang di ponsel ini. Stick dan tombol tahan butuh itu. Aksesibilitas hanya andal untuk ketukan tunggal.",
             color = Muted,
             fontSize = 13.sp
         )
@@ -251,26 +287,20 @@ private fun GtCard() {
     Panel(Modifier.fillMaxWidth()) {
         Text("GT TRIGGER", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
         Spacer(Modifier.height(6.dp))
-        Text("Sensor itu ada di GT 30 Pro, bukan di tablet.", color = Paper, fontWeight = FontWeight.Bold)
+        Text("Sensor di rangka ponsel, dan game juga di ponsel.", color = Paper, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         Text(
-            "XOS hanya menembak layar ponsel, dan biasanya hanya saat game terbuka di ponsel. Karena yang dipantulkan adalah tablet, trigger fisik tidak masuk ke host.",
+            "Mode belah membuka tengah layar, jadi GT Trigger tetap bisa menembak game. Overlay kiri dan kanan menelan ketukan yang jatuh di situ.",
             color = Muted,
             fontSize = 13.sp,
             lineHeight = 19.sp
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Di GT 30 Pro, pakai tombol GT L / GT R. Kalibrasi titik tembaknya ke posisi yang diinginkan di layar tablet.",
+            "Tombol GT di pinggir ponsel mengirim ketukan ke titik yang dikalibrasi. MatePad tidak punya gamepad.",
             color = Muted,
             fontSize = 13.sp,
             lineHeight = 19.sp
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Jangan hidupkan gelembung STOP kalau posisinya menutup aplikasi di tablet.",
-            color = Gold,
-            fontSize = 13.sp
         )
     }
 }

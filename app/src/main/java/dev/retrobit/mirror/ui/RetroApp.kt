@@ -102,7 +102,7 @@ private fun HomeScreen(running: Boolean, onHost: () -> Unit, onClient: () -> Uni
         Text("Mirror", color = Paper, fontSize = 42.sp, fontWeight = FontWeight.Black, letterSpacing = (-1).sp)
         Spacer(Modifier.height(8.dp))
         Text(
-            "MatePad Mini menjadi host. GT 30 Pro menampilkan layar tablet dan mengirim sentuhan, gamepad, serta keyboard.",
+            "Game berjalan di GT 30 Pro. MatePad Mini hanya menampilkan layarnya. Semua kontrol ada di ponsel.",
             color = Muted,
             fontSize = 15.sp,
             lineHeight = 22.sp
@@ -111,18 +111,18 @@ private fun HomeScreen(running: Boolean, onHost: () -> Unit, onClient: () -> Uni
             Spacer(Modifier.height(16.dp))
             Panel(Modifier.fillMaxWidth()) {
                 Text("Pantulan sedang hidup", color = Ok, fontWeight = FontWeight.Bold)
-                Text("Buka aplikasi di tablet. GT 30 Pro menampilkan layarnya.", color = Muted, fontSize = 13.sp)
+                Text("Buka game di ponsel. MatePad menampilkan layar tanpa gamepad.", color = Muted, fontSize = 13.sp)
             }
         }
         Spacer(Modifier.height(22.dp))
-        if (!infinix) {
-            HostRoleCard(huawei, onHost)
+        if (huawei && !infinix) {
+            DisplayRoleCard(huawei, onClient)
             Spacer(Modifier.height(12.dp))
-            ControllerRoleCard(infinix, onClient)
+            HostRoleCard(infinix, onHost)
         } else {
-            ControllerRoleCard(infinix, onClient)
+            HostRoleCard(infinix, onHost)
             Spacer(Modifier.height(12.dp))
-            HostRoleCard(huawei, onHost)
+            DisplayRoleCard(huawei, onClient)
         }
         Spacer(Modifier.height(18.dp))
         GhostButton("Cara pakai GT Trigger", onGuide, Modifier.fillMaxWidth())
@@ -133,22 +133,22 @@ private fun HomeScreen(running: Boolean, onHost: () -> Unit, onClient: () -> Uni
 }
 
 @Composable
-private fun HostRoleCard(huawei: Boolean, onClick: () -> Unit) {
+private fun HostRoleCard(infinix: Boolean, onClick: () -> Unit) {
     RoleCard(
-        kicker = if (huawei) "DISARANKAN DI PERANGKAT INI" else "HOST",
-        title = "MatePad Mini",
-        body = "Tangkap layar tablet dan terima kontrol dari GT 30 Pro. Peran ini harus dipasang sebagai APK.",
+        kicker = if (infinix) "DISARANKAN DI PERANGKAT INI" else "HOST",
+        title = "GT 30 Pro",
+        body = "Game dan semua kontrol ada di sini. Kiri dan kanan untuk gamepad, tengah untuk layar game.",
         accent = Amber,
         onClick = onClick
     )
 }
 
 @Composable
-private fun ControllerRoleCard(infinix: Boolean, onClick: () -> Unit) {
+private fun DisplayRoleCard(huawei: Boolean, onClick: () -> Unit) {
     RoleCard(
-        kicker = if (infinix) "DISARANKAN DI PERANGKAT INI" else "KONTROL",
-        title = "GT 30 Pro",
-        body = "Tampilkan layar tablet, lalu kirim sentuhan, gamepad, keyboard, dan tombol GT.",
+        kicker = if (huawei) "DISARANKAN DI PERANGKAT INI" else "LAYAR",
+        title = "MatePad Mini",
+        body = "Hanya menampilkan layar dari GT 30 Pro. Tidak ada gamepad di tablet.",
         accent = Cyan,
         onClick = onClick
     )
@@ -186,28 +186,28 @@ private fun GuideScreen(onBack: () -> Unit) {
         Text("Cara main", color = Paper, fontSize = 32.sp, fontWeight = FontWeight.Black)
         GuideBlock(
             "1",
-            "Host di MatePad Mini",
-            "Pasang APK di tablet, pilih MatePad Mini, mulai pantulan, lalu pilih seluruh layar. HarmonyOS NEXT tidak bisa menjadi host karena tidak memasang APK. Browser tidak bisa menangkap layar."
+            "GT 30 Pro sebagai host",
+            "Pasang APK di ponsel, pilih GT 30 Pro, mulai pantulan, lalu pilih seluruh layar untuk mode belah. Game tetap dibuka di ponsel. Kontrol muncul di kiri dan kanan."
         )
         GuideBlock(
             "2",
-            "Kontrol di GT 30 Pro",
-            "Pasang APK yang sama di ponsel dan pilih GT 30 Pro. Cari tablet di Wi-Fi yang sama, atau ketik IP dan PIN. Ponsel menampilkan layar tablet dan mengirim kontrol."
+            "MatePad hanya layar",
+            "Pasang APK yang sama dan pilih MatePad Mini, atau buka URL dari ponsel di browser. Tablet menampilkan layar game tanpa gamepad. Semua input dilakukan di GT 30 Pro."
         )
         GuideBlock(
             "3",
-            "Shizuku di tablet",
-            "Suntikan input terjadi di host, yaitu MatePad. Pasang Shizuku di tablet, mulai lewat debugging nirkabel, lalu izinkan RetroBit. Tanpa itu layar tetap kelihatan di ponsel, tetapi stick analog tidak stabil."
+            "Dua tata letak",
+            "Belah: 1/4 kiri dan 1/4 kanan adalah kontrol, 1/2 tengah adalah game. Layar tambahan: ponsel hanya kontrol, MatePad menampilkan aplikasi penuh. Atur ini di GT 30 Pro. Untuk layar tambahan, pilih satu aplikasi pada dialog sistem."
         )
         GuideBlock(
             "4",
-            "GT Trigger",
-            "Sensor GT Trigger ada di rangka ponsel dan hanya menembak layar ponsel, biasanya saat game terbuka di sana. Game yang ada di tablet tidak menerima trigger fisik. Pakai tombol GT L / GT R di ponsel, lalu kalibrasi titik tembaknya ke layar tablet."
+            "Shizuku di ponsel",
+            "Stick dan tombol tahan disuntikkan di GT 30 Pro. Pasang Shizuku di ponsel, mulai lewat debugging nirkabel, lalu izinkan RetroBit."
         )
         GuideBlock(
             "5",
-            "Agar tidak putus",
-            "Samakan Wi-Fi, atau jadikan hotspot salah satu perangkat kalau router memisahkan jaringan. Matikan optimalisasi baterai untuk RetroBit di kedua perangkat. Suara biarkan dari speaker tablet supaya tidak gema."
+            "GT Trigger",
+            "Trigger fisik hanya menembak layar ponsel. Mode belah membiarkan tengah terbuka supaya tembakan itu sampai ke game. Jangan tutup titik skill dengan overlay."
         )
     }
 }

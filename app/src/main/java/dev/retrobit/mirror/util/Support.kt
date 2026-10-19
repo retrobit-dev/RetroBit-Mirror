@@ -9,6 +9,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.util.DisplayMetrics
 import android.view.WindowManager
+import dev.retrobit.mirror.model.ViewMode
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import kotlin.random.Random
@@ -187,6 +188,12 @@ object Prefs {
 
     fun lastPin(context: Context): String = sp(context).getString("lastPin", "") ?: ""
     fun setLastPin(context: Context, pin: String) = sp(context).edit().putString("lastPin", pin).apply()
+
+    fun viewMode(context: Context): String = ViewMode.normalize(sp(context).getString("viewMode", ViewMode.SPLIT))
+
+    fun setViewMode(context: Context, mode: String) {
+        sp(context).edit().putString("viewMode", ViewMode.normalize(mode)).apply()
+    }
 
     fun hostName(context: Context): String {
         val saved = sp(context).getString("hostName", null)

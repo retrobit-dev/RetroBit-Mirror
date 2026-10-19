@@ -1,18 +1,21 @@
 # RetroBit Mirror
 
-Aplikasi native Android (Kotlin) untuk memantulkan layar **Huawei MatePad Mini** ke **Infinix GT 30 Pro**. Ponsel menjadi layar sekaligus kontrol: sentuhan, gamepad, keyboard, dan tombol GT.
+Aplikasi native Android (Kotlin) untuk memantulkan layar **Infinix GT 30 Pro** ke **Huawei MatePad Mini**. Game dan semua kontrol ada di ponsel. Tablet hanya menampilkan layar, tanpa gamepad.
 
-Yang berjalan di tablet dikirim ke ponsel. Semua lalu lintas ada di Wi-Fi lokal. Tidak ada akun, tidak ada server internet.
+Semua lalu lintas ada di Wi-Fi lokal. Tidak ada akun, tidak ada server internet.
 
 ## Peran
 
 | Perangkat | Peran |
 | --- | --- |
-| MatePad Mini | **Host**. Pasang APK, mulai pantulan, pilih seluruh layar. |
-| GT 30 Pro | **Kontrol dan layar**. Pasang APK yang sama, pilih GT 30 Pro, sambungkan dengan PIN. |
-| Browser | Cadangan untuk menampilkan dan mengontrol, lewat `http://IP-TABLET:28731`. Browser tidak bisa menjadi host. |
+| GT 30 Pro | **Host dan kontrol**. Game berjalan di sini. Kiri dan kanan layar untuk gamepad. |
+| MatePad Mini | **Layar saja**. Menampilkan game dari ponsel. Tidak mengirim input. |
+| Browser | Cadangan layar, lewat `http://IP-PONSEL:28731`. Juga tanpa gamepad. |
 
-Host harus bisa memasang APK. Kalau MatePad memakai HarmonyOS NEXT dan menolak APK Android, tablet itu tidak bisa menangkap layar atau menerima input. Browser di ponsel tetap hanya penampil.
+Di GT 30 Pro ada dua tata letak:
+
+- **Belah**: 1/4 kiri dan 1/4 kanan adalah kontrol, 1/2 tengah adalah game. MatePad hanya menerima bagian tengah, jadi gamepad tidak ikut tampil.
+- **Layar tambahan**: ponsel hanya menampilkan kontrol. MatePad menampilkan aplikasi yang dipilih pada dialog tangkap layar. Pilih satu aplikasi, bukan seluruh layar.
 
 ## Yang bisa dilakukan
 
@@ -20,7 +23,7 @@ Host harus bisa memasang APK. Kalau MatePad memakai HarmonyOS NEXT dan menolak A
 - Cadangan MJPEG di browser kalau WebCodecs tidak ada.
 - Sentuhan, stylus, dan mouse di area layar.
 - Gamepad virtual: stick, ABXY, D-pad, bahu, plus **GT L / GT R**.
-- Gamepad Bluetooth dan keyboard yang tersambung ke ponsel, diteruskan ke tablet.
+- Gamepad Bluetooth dan keyboard disambungkan ke ponsel, lalu disuntikkan ke game di ponsel. Tablet tidak menerima input.
 - Profil MOBA, FPS, dan Balap. Tata letak bisa digeser dan disimpan.
 - Tombol Back, Home, Recent, volume.
 - Penemuan host lewat siaran UDP dan NSD, plus sambungan IP manual.
@@ -28,20 +31,18 @@ Host harus bisa memasang APK. Kalau MatePad memakai HarmonyOS NEXT dan menolak A
 
 ## GT Trigger
 
-GT Trigger **bukan API publik**. Itu sensor kapasitif di rangka GT 30 Pro. XOS menembakkan ketukan ke layar ponsel sendiri, biasanya hanya saat game atau kamera terbuka di ponsel. RetroBit tidak membaca sensornya.
+GT Trigger **bukan API publik**. Itu sensor kapasitif di rangka GT 30 Pro. XOS menembakkan ketukan ke layar ponsel, biasanya hanya saat game terbuka di sana. RetroBit tidak membaca sensornya.
 
-Karena host-nya tablet, trigger fisik tidak masuk ke MatePad. Di ponsel, pakai tombol GT L / GT R pada layar kontrol, lalu kalibrasi titik tembaknya ke posisi di tablet.
-
-Jangan hidupkan gelembung STOP di tablet kalau posisinya menutup aplikasi yang sedang dipantulkan.
+Mode belah membiarkan tengah layar terbuka, jadi trigger fisik tetap bisa mengenai game. Overlay kiri dan kanan menelan ketukan yang jatuh di atasnya. Tombol GT di pinggir ponsel mengirim ketukan ke titik yang dikalibrasi. MatePad tidak punya tombol itu.
 
 ## Input: kenapa Shizuku
 
-Android tidak mengizinkan aplikasi biasa menyuntik sentuhan ke aplikasi lain. RetroBit memakai dua jalur, keduanya di **tablet host**:
+Android tidak mengizinkan aplikasi biasa menyuntik sentuhan ke aplikasi lain. RetroBit memakai dua jalur, keduanya di **GT 30 Pro**:
 
 1. **Shizuku** (disarankan). Proses shell menyuntik `MotionEvent` dengan jari yang bisa ditahan. Ini yang membuat stick analog, tembakan tahan, dan keyboard terasa benar.
 2. **Aksesibilitas** (cadangan). Hanya andal untuk ketuk dan geser. Stick analog tidak stabil. Android 13+ kadang menyembunyikan layanan aplikasi sideload: Setelan → Aplikasi → RetroBit Mirror → menu → Izinkan setelan terbatas.
 
-Langkah Shizuku di MatePad:
+Langkah Shizuku di GT 30 Pro:
 
 1. Pasang Shizuku dari [shizuku.rikka.app](https://shizuku.rikka.app/).
 2. Setelan pengembang → Debugging nirkabel → hidupkan.
@@ -55,10 +56,10 @@ Tanpa Shizuku, layar tetap bisa dipantulkan. Kontrol analog-nya yang belum layak
 
 Setiap push menjalankan GitHub Actions dan menghasilkan dua APK:
 
-- `RetroBit-Mirror-release` — yang dipasang di tablet dan ponsel. File di dalamnya `RetroBit-Mirror-1.1.0.apk`.
+- `RetroBit-Mirror-release` — pasang di ponsel dan tablet. File di dalamnya `RetroBit-Mirror-1.2.0.apk`.
 - `RetroBit-Mirror-debug` — hanya untuk pengembangan.
 
-Unduh dari tab Actions pada run yang hijau, atau dari [Releases](https://github.com/retrobit-dev/RetroBit-Mirror/releases) kalau run-nya menerbitkan rilis `v1.1.0`.
+Unduh dari tab Actions pada run yang hijau, atau dari [Releases](https://github.com/retrobit-dev/RetroBit-Mirror/releases) kalau run-nya menerbitkan rilis `v1.2.0`.
 
 APK rilis ditandatangani dengan kunci tetap di `signing/`. Build berikutnya bisa dipasang di atas yang lama tanpa hapus data. Kalau sebelumnya terpasang APK debug, Android menolak karena tanda tangannya berbeda: hapus dulu, lalu pasang rilis.
 
@@ -78,27 +79,25 @@ Butuh Android Studio dengan JDK 17.
 
 APK ada di `app/build/outputs/apk/release/`. Kunci sideload yang sama dengan GitHub dibaca dari `signing/release.properties`.
 
-Pasang APK yang sama di MatePad dan GT 30 Pro. Izinkan pemasangan dari sumber tak dikenal. Tablet harus benar-benar bisa memasang APK; kalau tidak, ia tidak bisa menjadi host.
+Pasang APK yang sama di GT 30 Pro dan, kalau bisa, di MatePad. Izinkan pemasangan dari sumber tak dikenal. Izinkan juga RetroBit tampil di atas aplikasi lain, supaya gamepad pinggir bisa muncul di atas game.
 
 ## Main
 
-1. Samakan Wi-Fi. Kalau router memisahkan perangkat, jadikan hotspot salah satu perangkat dan sambungkan yang lain ke hotspot itu.
-2. Di tablet: **MatePad Mini → Mulai pantulan**. Pada dialog sistem, pilih **seluruh layar**.
-3. Catat PIN dan URL, misalnya `http://192.168.1.23:28731`.
-4. Di GT 30 Pro, buka RetroBit, pilih **GT 30 Pro**, lalu sambungkan dengan IP dan PIN. Browser ke URL yang sama juga bisa, tetapi APK lebih rendah latensi.
-5. Buka aplikasi yang ingin ditampilkan di tablet. Jangan tutup notifikasi RetroBit di tablet.
-6. Di ponsel, pilih profil, geser tombol, lalu kalibrasi GT L dan GT R ke posisi di layar tablet.
-7. Matikan optimalisasi baterai untuk RetroBit di kedua perangkat.
+1. Samakan Wi-Fi. Kalau router memisahkan perangkat, jadikan hotspot ponsel dan sambungkan MatePad ke hotspot itu.
+2. Di ponsel: **GT 30 Pro → pilih Belah atau Layar tambahan → Mulai pantulan**.
+3. Mode belah: pilih **seluruh layar**. Mode layar tambahan: pilih **aplikasi game**, bukan seluruh layar.
+4. Catat PIN dan URL, misalnya `http://192.168.1.23:28731`.
+5. Di MatePad, pilih peran layar dan sambungkan, atau buka URL itu di browser. Jangan cari gamepad di tablet.
+6. Buka game di ponsel. Kontrol kiri dan kanan menyuntikkan input ke game. Tengah, pada mode belah, tetap terlihat.
+7. Matikan optimalisasi baterai untuk RetroBit di ponsel.
 
-Suara sengaja tidak dikirim ke ponsel secara bawaan, supaya tidak gema dengan speaker tablet. Aktifkan "Suara di ponsel" hanya kalau tablet dibisukan.
+Suara sengaja tidak dikirim ke tablet secara bawaan, supaya tidak gema dengan speaker ponsel. Aktifkan "Suara di tablet" hanya kalau ponsel dibisukan.
 
 ## Profil kontrol
 
-Koordinat tombol adalah posisi ketukan di layar tablet, 0–1. Posisi visual di ponsel bisa dipisah: geser tombol di mode Edit, lalu kalibrasi titik tembak dengan mengetuk layar yang dipantulkan. GT L / GT R memang dipisah sejak awal — jempol di tepi ponsel, tembakan jatuh di titik yang dikalibrasi di tablet.
+Koordinat tombol adalah posisi ketukan di layar ponsel, 0–1. Tombol visual ada di pinggir GT 30 Pro. GT L / GT R mengirim tembakan ke titik skill, bukan ke tempat jempol.
 
-Profil bawaan hanya titik awal. Kalibrasi sekali, lalu tersimpan di ponsel.
-
-Gamepad atau keyboard Bluetooth disambungkan ke **ponsel**, bukan ke tablet. Aplikasi yang meneruskan.
+Profil bawaan hanya titik awal. Gamepad atau keyboard Bluetooth disambungkan ke **ponsel**. Tablet tidak meneruskan input.
 
 ## Port
 
@@ -106,17 +105,17 @@ Gamepad atau keyboard Bluetooth disambungkan ke **ponsel**, bukan ke tablet. Apl
 | --- | --- |
 | UDP 28729 | Siaran penemuan host |
 | TCP 28730 | Klien native: H.264 + input |
-| TCP 28731 | Browser kontrol: halaman, WebSocket, MJPEG cadangan |
+| TCP 28731 | Browser layar: halaman, WebSocket, MJPEG cadangan |
 
 ## Jika tersendat
 
 - Layar hitam: mulai ulang pantulan dan pilih seluruh layar, bukan satu aplikasi.
 - Tablet tidak menemukan host: ketik IP manual. UDP sering diblokir router.
-- Ketukan tidak masuk tablet: Shizuku belum siap di MatePad, atau aksesibilitas belum diizinkan.
-- Stick jalan tapi titik tembak meleset: kalibrasi ulang titik tembak, bukan hanya posisi visual tombol.
-- Stream putus saat aplikasi dibuka di tablet: whitelist baterai dan kunci RetroBit di recent.
-- GT Trigger fisik tidak menembak tablet: itu batas XOS. Pakai tombol GT di layar ponsel.
-- Browser hanya menampilkan gambar diam: itu cadangan JPEG. Untuk latensi lebih rendah pakai peran kontrol di APK ponsel.
+- Ketukan kontrol tidak masuk game: Shizuku belum siap di GT 30 Pro, atau aksesibilitas belum diizinkan.
+- Gamepad tidak muncul di pinggir: izinkan RetroBit tampil di atas aplikasi lain.
+- MatePad ikut menampilkan gamepad: mode belah harus memilih seluruh layar. Mode layar tambahan harus memilih satu aplikasi.
+- GT Trigger tidak terasa: pastikan sedang di dalam game dan titik skill tidak tertutup overlay pinggir.
+- Browser hanya menampilkan gambar diam: itu cadangan JPEG. Gambarnya tetap layar, bukan kontrol.
 
 ## Privasi
 

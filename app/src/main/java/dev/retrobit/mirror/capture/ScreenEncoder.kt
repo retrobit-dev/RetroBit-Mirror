@@ -20,6 +20,7 @@ class ScreenEncoder(
     private var displayH: Int,
     private val dpi: Int,
     private val preset: QualityPreset,
+    private val cropFraction: Float = 0f,
     private val onConfig: (width: Int, height: Int, csd: ByteArray) -> Unit,
     private val onFrame: (data: ByteArray, keyframe: Boolean, ptsUs: Long) -> Unit,
     private val onError: (String) -> Unit
@@ -27,6 +28,7 @@ class ScreenEncoder(
     private var codec: MediaCodec? = null
     private var display: VirtualDisplay? = null
     private var surface: Surface? = null
+    private var cropper: FrameCropper? = null
     private var thread: Thread? = null
 
     @Volatile
@@ -85,7 +87,9 @@ class ScreenEncoder(
 
     private fun openEncoder() {
         val fitted = DisplayInfo.evenFit(displayW, displayH, preset.maxSide)
-        width = fitted.first
+        val crop = cropFraction.coerceIn(0f, 0.4f)
+        val croppedW = if (crop > 0f) ((fitted.first * (1f - crop * 2f)).toInt() / 2) * 2 else fitted.first
+        width = croppedW.coerceAtLeast(2)
         height = fitted.second
         val bitrate = (preset.bpp * width * height * preset.fps).toInt().coerceIn(900_000, 16_000_000)
         val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
@@ -99,17 +103,24 @@ class ScreenEncoder(
         val input = codec.createInputSurface()
         surface = input
         codec.start()
+        val mirror = if (crop > 0f) {
+            val compositor = FrameCropper(input, width, height, fitted.first, fitted.second, crop, 1f - crop)
+            cropper = compositor
+            compositor.inputSurface
+        } else {
+            input
+        }
         display = projection.createVirtualDisplay(
             "RetroBit",
-            width,
-            height,
+            if (crop > 0f) fitted.first else width,
+            if (crop > 0f) fitted.second else height,
             dpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            input,
+            mirror,
             null,
             null
         )
-        Log.i(TAG, "encoder ${width}x$height @${preset.fps} ${bitrate / 1000}kbps")
+        Log.i(TAG, "encoder ${width}x$height crop=$crop @${preset.fps} ${bitrate / 1000}kbps")
     }
 
     private fun drain() {
@@ -157,6 +168,11 @@ class ScreenEncoder(
         } catch (_: Throwable) {
         }
         display = null
+        try {
+            cropper?.release()
+        } catch (_: Throwable) {
+        }
+        cropper = null
         try {
             codec?.stop()
         } catch (_: Throwable) {
