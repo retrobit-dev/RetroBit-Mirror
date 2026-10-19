@@ -1,11 +1,13 @@
 package dev.retrobit.mirror.ui
 
+import android.graphics.BitmapFactory
 import android.view.KeyEvent
 import android.view.TextureView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -44,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -158,6 +162,7 @@ fun ClientBrowseScreen(client: MirrorClient, onBack: () -> Unit, onConnected: ()
 fun PlayScreen(client: MirrorClient, onExit: () -> Unit) {
     val context = LocalContext.current
     val stats by client.stats.collectAsState()
+    val jpegBytes by client.jpeg.collectAsState()
     var profiles by remember { mutableStateOf(Profiles.fromJson(Prefs.profiles(context))) }
     var profileId by remember { mutableStateOf(Prefs.activeProfile(context)) }
     var showPad by remember { mutableStateOf(false) }
@@ -212,10 +217,21 @@ fun PlayScreen(client: MirrorClient, onExit: () -> Unit) {
             val width = if (maxW / maxH > aspect) maxH * aspect else maxW
             val height = width / aspect
             Box(Modifier.size(width, height).align(Alignment.Center)) {
+                val bitmap = remember(jpegBytes) {
+                    jpegBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+                }
+                if (bitmap != null) {
+                    Image(
+                        bitmap,
+                        contentDescription = "Layar GT 30 Pro",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.FillBounds
+                    )
+                }
                 AndroidView(
                     factory = { ctx ->
                         TextureView(ctx).apply {
-                            isOpaque = true
+                            isOpaque = false
                             surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                                 override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) {
                                     st.setDefaultBufferSize(stats.videoW.coerceAtLeast(2), stats.videoH.coerceAtLeast(2))

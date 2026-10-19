@@ -50,6 +50,7 @@ object HardwareInput {
 class MirrorClient {
     val stats = MutableStateFlow(ClientStats())
     val hosts = MutableStateFlow<List<FoundHost>>(emptyList())
+    val jpeg = MutableStateFlow<ByteArray?>(null)
 
     private var listener: DiscoveryListener? = null
     private var socket: Socket? = null
@@ -64,6 +65,7 @@ class MirrorClient {
     private val flush = Runnable { flushNow() }
     private var frames = 0
     private var lastFpsTick = 0L
+    private var jpegPull: JpegPull? = null
 
     fun startScan(context: android.content.Context) {
         stopScan()
@@ -128,6 +130,7 @@ class MirrorClient {
                                         injection = json.optString("injection", "unknown")
                                     )
                                     ensureDecoder()
+                                    startJpeg(host, json.optInt("httpPort", 28731), pin)
                                 }
                             }
                             Proto.STATE -> {
@@ -204,6 +207,9 @@ class MirrorClient {
         decoder = null
         audio?.release()
         audio = null
+        jpegPull?.stop()
+        jpegPull = null
+        jpeg.value = null
         if (stats.value.phase != "error") stats.value = stats.value.copy(phase = "idle", fps = 0, pingMs = -1)
     }
 
@@ -263,6 +269,11 @@ class MirrorClient {
         }
         val json = JSONObject().put("events", batch).toString()
         writer?.sendControl(Proto.encodeUtf(Proto.INPUT, 0, json))
+    }
+
+    private fun startJpeg(host: String, port: Int, pin: String) {
+        if (jpegPull != null || port <= 0) return
+        jpegPull = JpegPull(host, port, pin) { bytes -> jpeg.value = bytes }.also { it.start() }
     }
 
     private fun ensureDecoder() {
@@ -369,12 +380,31 @@ class VideoDecoder {
             format.setByteBuffer("csd-0", ByteBuffer.wrap(sps ?: stripStart(config)))
             if (pps != null) format.setByteBuffer("csd-1", ByteBuffer.wrap(pps))
             if (Build.VERSION.SDK_INT >= 30) format.setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
-            decoder.configure(format, target, null, 0)
+            try {
+                decoder.configure(format, target, null, 0)
+            } catch (t: Throwable) {
+                Log.w("RetroBitDec", "configure ${t.message}")
+                try {
+                    decoder.release()
+                } catch (_: Throwable) {
+                }
+                val retry = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+                val plain = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height)
+                plain.setByteBuffer("csd-0", ByteBuffer.wrap(sps ?: stripStart(config)))
+                if (pps != null) plain.setByteBuffer("csd-1", ByteBuffer.wrap(pps))
+                retry.configure(plain, target, null, 0)
+                retry.start()
+                codec = retry
+                configured = true
+                return@post
+            }
             decoder.start()
             codec = decoder
             configured = true
         }
     }
+
+    private var nextPts = 0L
 
     fun queue(data: ByteArray, keyframe: Boolean) {
         handler.post {
@@ -387,7 +417,8 @@ class VideoDecoder {
                     buf?.clear()
                     buf?.put(data)
                     val flags = if (keyframe) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0
-                    decoder.queueInputBuffer(index, 0, data.size, System.nanoTime() / 1000, flags)
+                    nextPts += 33_333
+                    decoder.queueInputBuffer(index, 0, data.size, nextPts, flags)
                 }
                 val info = MediaCodec.BufferInfo()
                 while (true) {

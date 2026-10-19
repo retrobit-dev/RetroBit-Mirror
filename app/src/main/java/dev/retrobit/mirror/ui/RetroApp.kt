@@ -197,7 +197,7 @@ private fun GuideScreen(onBack: () -> Unit) {
         GuideBlock(
             "3",
             "Dua tata letak",
-            "Belah: 1/4 kiri dan 1/4 kanan adalah kontrol, 1/2 tengah adalah game. Layar tambahan: ponsel hanya kontrol, MatePad menampilkan aplikasi penuh. Atur ini di GT 30 Pro. Untuk layar tambahan, pilih satu aplikasi pada dialog sistem."
+            "Belah: potret memakai 1/4 kiri dan 1/4 kanan untuk kontrol. Landscape memakai panel lebih sempit. Layar tambahan: ponsel hanya kontrol, MatePad menampilkan aplikasi penuh. Saat tersambung, layar ponsel bisa disembunyikan tanpa mematikan gambar di tablet. Aktifkan aksesibilitas di GT 30 Pro."
         )
         GuideBlock(
             "4",

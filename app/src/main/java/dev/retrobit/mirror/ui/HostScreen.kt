@@ -56,6 +56,7 @@ fun HostScreen(
     var audio by rememberSaveable { mutableStateOf(Prefs.audio(context)) }
     var bubble by rememberSaveable { mutableStateOf(Prefs.bubble(context)) }
     var viewMode by rememberSaveable { mutableStateOf(Prefs.viewMode(context)) }
+    var hidePhone by rememberSaveable { mutableStateOf(Prefs.hideWhenConnected(context)) }
     var copied by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -170,9 +171,9 @@ fun HostScreen(
         }
         Text(
             if (viewMode == ViewMode.EXTENDED) {
-                "Ponsel hanya kontrol. Pada dialog tangkap layar pilih aplikasinya, bukan seluruh layar, supaya MatePad tidak ikut merekam gamepad."
+                "Ponsel hanya kontrol. Pada dialog tangkap layar pilih aplikasinya, bukan seluruh layar. MatePad menerima aplikasi itu penuh."
             } else {
-                "Kiri dan kanan 1/4 untuk kontrol. Tengah 1/2 tetap game. MatePad hanya menerima bagian tengah itu."
+                "Potret: kiri dan kanan 1/4 kontrol, tengah game. Landscape: panel kontrol lebih sempit supaya area game lebih lebar. MatePad menerima game, bukan tombol."
             },
             color = Muted,
             fontSize = 12.sp
@@ -203,6 +204,16 @@ fun HostScreen(
             ToggleRow("Suara di tablet", "Mati secara bawaan supaya tidak gema dengan speaker ponsel.", audio) {
                 audio = it
                 Prefs.setAudio(context, it)
+            }
+            Spacer(Modifier.height(8.dp))
+            ToggleRow(
+                "Sembunyikan layar ponsel saat tersambung",
+                "Gambar tetap jalan ke MatePad. Aktifkan aksesibilitas dulu, supaya penutup tidak ikut tertangkap.",
+                hidePhone
+            ) {
+                hidePhone = it
+                Prefs.setHideWhenConnected(context, it)
+                if (state.running) dev.retrobit.mirror.host.MirrorHostService.setMode(context, viewMode)
             }
             Spacer(Modifier.height(8.dp))
             ToggleRow("Gelembung STOP", "Tombol kecil di atas. Matikan kalau menghalangi game.", bubble) {
@@ -265,7 +276,7 @@ private fun InjectionCard() {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Shizuku dipasang di ponsel ini. Stick dan tombol tahan butuh itu. Aksesibilitas hanya andal untuk ketukan tunggal.",
+            "Shizuku di ponsel ini untuk stick dan tombol tahan. Aksesibilitas juga menyembunyikan kontrol dari tangkapan layar, jadi MatePad melihat game, bukan tombol.",
             color = Muted,
             fontSize = 13.sp
         )

@@ -50,18 +50,26 @@ object NetInfo {
 }
 
 object DisplayInfo {
-    fun realSize(context: Context): Pair<Int, Int> {
+    fun currentSize(context: Context): Pair<Int, Int> {
         val wm = context.getSystemService(WindowManager::class.java)
-        return if (Build.VERSION.SDK_INT >= 30) {
-            val b = wm.maximumWindowMetrics.bounds
-            b.width() to b.height()
-        } else {
-            val dm = DisplayMetrics()
+        val dm = DisplayMetrics()
+        try {
             @Suppress("DEPRECATION")
             wm.defaultDisplay.getRealMetrics(dm)
-            dm.widthPixels to dm.heightPixels
+            if (dm.widthPixels > 0 && dm.heightPixels > 0) return dm.widthPixels to dm.heightPixels
+        } catch (_: Throwable) {
         }
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                val bounds = wm.currentWindowMetrics.bounds
+                if (bounds.width() > 0 && bounds.height() > 0) return bounds.width() to bounds.height()
+            } catch (_: Throwable) {
+            }
+        }
+        return 1280 to 720
     }
+
+    fun realSize(context: Context): Pair<Int, Int> = currentSize(context)
 
     fun dpi(context: Context): Int = context.resources.displayMetrics.densityDpi.coerceAtLeast(120)
 
@@ -193,6 +201,12 @@ object Prefs {
 
     fun setViewMode(context: Context, mode: String) {
         sp(context).edit().putString("viewMode", ViewMode.normalize(mode)).apply()
+    }
+
+    fun hideWhenConnected(context: Context): Boolean = sp(context).getBoolean("hideWhenConnected", true)
+
+    fun setHideWhenConnected(context: Context, on: Boolean) {
+        sp(context).edit().putBoolean("hideWhenConnected", on).apply()
     }
 
     fun hostName(context: Context): String {

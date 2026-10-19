@@ -75,7 +75,13 @@ class MainActivity : ComponentActivity() {
 
     private fun launchProjection() {
         val mgr = getSystemService(android.media.projection.MediaProjectionManager::class.java)
-        projection.launch(mgr.createScreenCaptureIntent())
+        val extended = dev.retrobit.mirror.util.Prefs.viewMode(this) == dev.retrobit.mirror.model.ViewMode.EXTENDED
+        val intent = if (android.os.Build.VERSION.SDK_INT >= 34 && !extended) {
+            mgr.createScreenCaptureIntent(android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay())
+        } else {
+            mgr.createScreenCaptureIntent()
+        }
+        projection.launch(intent)
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

@@ -46,6 +46,8 @@ class MirrorHostService : Service() {
     private var encoder: ScreenEncoder? = null
     private var audio: AudioCapture? = null
     private var jpeg: JpegPump? = null
+    private var mirrorDisplay: android.hardware.display.VirtualDisplay? = null
+    private var videoCsd = ByteArray(0)
     private var nativeServer: NativeServer? = null
     private var web: WebPortal? = null
     private var beacon: DiscoveryBeacon? = null
@@ -53,6 +55,7 @@ class MirrorHostService : Service() {
     private var cpuLock: android.os.PowerManager.WakeLock? = null
     private var bubble: TextView? = null
     private var deck: HostDeck? = null
+    private var deckStamp = ""
     private val main = Handler(Looper.getMainLooper())
     private var displayListener: DisplayManager.DisplayListener? = null
     private val frameCount = AtomicInteger(0)
@@ -79,8 +82,9 @@ class MirrorHostService : Service() {
                 val mode = ViewMode.normalize(intent.getStringExtra(EXTRA_MODE))
                 Prefs.setViewMode(this, mode)
                 if (HostRuntime.session != null) {
-                    restartEncoder()
-                    showDeck(mode)
+                    HostRuntime.update { it.copy(viewMode = mode) }
+                    deckStamp = ""
+                    refreshDeck()
                 }
                 return START_NOT_STICKY
             }
@@ -125,7 +129,7 @@ class MirrorHostService : Service() {
             wifiLock = Locks.wifi(this).also { it.acquire() }
             cpuLock = Locks.cpu(this).also { it.acquire() }
 
-            val jpegPump = JpegPump(projection, size.first, size.second, DisplayInfo.dpi(this))
+            val jpegPump = JpegPump()
             jpeg = jpegPump
             val webPortal = WebPortal(this, session, jpegPump)
             val httpPort = webPortal.start()
@@ -138,7 +142,8 @@ class MirrorHostService : Service() {
             this.beacon = beacon
 
             startEncoder(session, preset)
-            showDeck(Prefs.viewMode(this))
+            deckStamp = ""
+            refreshDeck()
 
             if (audioOn) {
                 val capture = AudioCapture(
@@ -205,6 +210,7 @@ class MirrorHostService : Service() {
                 }
                 HostRuntime.session?.publishState()
                 updateNotification()
+                refreshDeck()
             }
         }, "retrobit-stats").also { it.start() }
     }
@@ -231,6 +237,8 @@ class MirrorHostService : Service() {
         InputHub.displayW = size.first
         InputHub.displayH = size.second
         restartEncoder()
+        deckStamp = ""
+        refreshDeck()
     }
 
     private fun restartEncoder() {
@@ -247,16 +255,19 @@ class MirrorHostService : Service() {
     }
 
     private fun startEncoder(session: HostSession, preset: QualityPreset) {
-        val projection = projection ?: return
-        val mode = Prefs.viewMode(this)
+        if (projection == null) return
+        var frameW = 2
+        var frameH = 2
         val next = ScreenEncoder(
-            projection = projection,
             displayW = InputHub.displayW,
             displayH = InputHub.displayH,
-            dpi = DisplayInfo.dpi(this),
             preset = preset,
-            cropFraction = ViewMode.crop(mode),
+            onAttach = { surface, w, h -> attachMirror(surface, w, h) },
+            onDetach = { detachMirror() },
             onConfig = { w, h, csd ->
+                frameW = w
+                frameH = h
+                videoCsd = csd
                 session.publishConfig(w, h, csd)
                 HostRuntime.update { it.copy(videoLabel = "${w}×${h}") }
             },
@@ -264,21 +275,74 @@ class MirrorHostService : Service() {
                 frameCount.incrementAndGet()
                 byteCount.addAndGet(bytes.size.toLong())
                 session.publishVideo(bytes, key, pts)
+                jpeg?.offer(videoCsd, bytes, key, frameW, frameH)
             },
             onError = { message -> HostRuntime.update { it.copy(error = message) } }
         )
+        jpeg?.onNeedKey = { next.requestSync() }
         session.requestKeyframe = { next.requestSync() }
         next.start()
         encoder = next
     }
 
-    private fun showDeck(mode: String) {
-        if (Build.VERSION.SDK_INT >= 23 && !android.provider.Settings.canDrawOverlays(this)) {
-            HostRuntime.update { it.copy(error = "Izinkan tampil di atas aplikasi lain supaya gamepad muncul di pinggir layar.") }
+    private fun attachMirror(surface: android.view.Surface, w: Int, h: Int) {
+        val projection = projection ?: return
+        val existing = mirrorDisplay
+        if (existing == null) {
+            mirrorDisplay = projection.createVirtualDisplay(
+                "RetroBit",
+                w,
+                h,
+                DisplayInfo.dpi(this),
+                android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                surface,
+                null,
+                main
+            )
+            if (mirrorDisplay == null) error("VirtualDisplay kosong")
+            Log.i(TAG, "capture ${w}x$h")
+        } else {
+            existing.resize(w, h, DisplayInfo.dpi(this))
+            existing.setSurface(surface)
+            Log.i(TAG, "capture resize ${w}x$h")
+        }
+    }
+
+    private fun detachMirror() {
+        try {
+            mirrorDisplay?.setSurface(null)
+        } catch (_: Throwable) {
+        }
+    }
+
+    private fun refreshDeck() {
+        if (HostRuntime.session == null) return
+        val size = DisplayInfo.currentSize(this)
+        val connected = HostRuntime.state.value.clients.isNotEmpty()
+        val access = dev.retrobit.mirror.input.RetroBitAccessibilityService.instance != null
+        val hide = Prefs.hideWhenConnected(this) && connected && access
+        val stamp = "${size.first}x${size.second}|${Prefs.viewMode(this)}|$hide|$access|$connected"
+        if (stamp == deckStamp) return
+        deckStamp = stamp
+        showDeck(Prefs.viewMode(this), hide)
+    }
+
+    private fun showDeck(mode: String, hideCenter: Boolean = false) {
+        val access = dev.retrobit.mirror.input.RetroBitAccessibilityService.instance
+        val canOverlay = Build.VERSION.SDK_INT < 23 || android.provider.Settings.canDrawOverlays(this)
+        if (access == null && !canOverlay) {
+            HostRuntime.update {
+                it.copy(error = "Aktifkan aksesibilitas RetroBit supaya MatePad melihat game, bukan kontrol, dan layar ponsel bisa disembunyikan.")
+            }
             return
         }
+        if (access == null) {
+            HostRuntime.update {
+                it.copy(hint = "Aktifkan aksesibilitas RetroBit. Tanpa itu, overlay kontrol ikut terkirim dan layar ponsel tidak bisa disembunyikan.")
+            }
+        }
         val shown = deck ?: HostDeck(this).also { deck = it }
-        main.post { shown.show(mode) }
+        main.post { shown.show(mode, hideCenter, access) }
     }
 
     private fun shutdown(error: String?) {
@@ -319,7 +383,17 @@ class MirrorHostService : Service() {
         } catch (_: Throwable) {
         }
         encoder = null
+        try {
+            jpeg?.stop()
+        } catch (_: Throwable) {
+        }
         jpeg = null
+        try {
+            mirrorDisplay?.release()
+        } catch (_: Throwable) {
+        }
+        mirrorDisplay = null
+        videoCsd = ByteArray(0)
         try {
             projection?.unregisterCallback(projectionCallback)
         } catch (_: Throwable) {

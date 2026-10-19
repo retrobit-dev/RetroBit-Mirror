@@ -75,6 +75,9 @@ const state = {
   flushTimer: 0,
   decoder: null,
   usingMjpeg: false,
+  jpegTimer: 0,
+  jpegMiss: 0,
+  webFrames: 0,
   game: { x: 0.32, y: 0.62, aim: 0, shots: [], score: 0, flash: "" }
 };
 
@@ -122,6 +125,7 @@ function leaveStage() {
   $("gate").hidden = false;
   if (state.ws) state.ws.close();
   state.ws = null;
+  stopJpeg();
   $("stream").removeAttribute("src");
   state.demo = true;
   state.videoMode = "demo";
@@ -136,14 +140,14 @@ function banner() {
   }
   if (state.demo) {
     el.hidden = false;
-    el.textContent = "Mode demo — gerakan stick dan tombol GT di sini. Sambungan asli butuh APK host di MatePad.";
+    el.textContent = "Mode demo. Untuk layar asli, buka URL yang tertulis di GT 30 Pro.";
     return;
   }
   if (state.injection === "none" || state.injection === "accessibility") {
     el.hidden = false;
     el.textContent = state.injection === "none"
-      ? "Host belum punya metode input. Aktifkan Shizuku di MatePad."
-      : "Host hanya aksesibilitas. Stick analog butuh Shizuku.";
+      ? "GT 30 Pro belum punya metode input. Aktifkan Shizuku di ponsel."
+      : "GT 30 Pro hanya aksesibilitas. Stick analog butuh Shizuku di ponsel.";
     return;
   }
   el.hidden = true;
@@ -450,7 +454,7 @@ function loop() {
 }
 
 function draw() {
-  if (state.videoMode === "webcodecs" || state.videoMode === "mjpeg") return;
+  if (state.videoMode === "webcodecs" || state.videoMode === "mjpeg" || state.videoMode === "jpeg") return;
   const w = view.width;
   const h = view.height;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -545,12 +549,15 @@ async function connect() {
     if (!res.ok || !data.ok) throw new Error("PIN salah");
     state.token = data.token;
     state.demo = false;
+    state.videoMode = "jpeg";
+    state.webFrames = 0;
     openSocket();
+    startJpeg();
     showStage();
     setStatus("");
   } catch (err) {
     if (String(err.message) === "preview" || err instanceof TypeError) {
-      setStatus("Ini pratinjau, bukan siaran dari MatePad. Pakai mode demo, atau buka URL yang tertulis di tablet.");
+      setStatus("Ini pratinjau, bukan siaran. Di MatePad, buka URL yang tertulis di GT 30 Pro.");
     } else {
       setStatus(err.message || "Gagal sambung");
     }
@@ -569,9 +576,6 @@ function openSocket() {
   ws.onclose = () => {
     $("stage-meta").textContent = "Terputus";
   };
-  setTimeout(() => {
-    if (state.videoMode === "demo" && !state.demo) startMjpeg();
-  }, 1600);
 }
 
 function onText(raw) {
@@ -626,11 +630,15 @@ function setupDecoder(config) {
   try {
     const decoder = new VideoDecoder({
       output: (frame) => {
-        state.videoMode = "webcodecs";
-        $("stream").hidden = true;
+        state.webFrames += 1;
         view.hidden = false;
         ctx.drawImage(frame, 0, 0, view.width, view.height);
         frame.close();
+        if (state.webFrames >= 2) {
+          state.videoMode = "webcodecs";
+          stopJpeg();
+          $("stream").hidden = true;
+        }
       },
       error: () => startMjpeg()
     });
@@ -647,14 +655,48 @@ function setupDecoder(config) {
   }
 }
 
-function startMjpeg() {
-  if (state.usingMjpeg || state.demo || !state.token) return;
-  state.usingMjpeg = true;
-  state.videoMode = "mjpeg";
+function stopJpeg() {
+  if (state.jpegTimer) clearTimeout(state.jpegTimer);
+  state.jpegTimer = 0;
+}
+
+function startJpeg() {
+  if (state.jpegTimer || state.demo || !state.token) return;
+  state.jpegTimer = -1;
+  state.videoMode = "jpeg";
   view.hidden = true;
-  const img = $("stream");
-  img.hidden = false;
-  img.src = "/stream.mjpeg?token=" + state.token + "&t=" + Date.now();
+  $("stream").hidden = false;
+  const pump = () => {
+    if (!state.token || state.demo || state.videoMode === "webcodecs") return;
+    const probe = new Image();
+    probe.onload = () => {
+      if (state.videoMode === "webcodecs") return;
+      state.jpegMiss = 0;
+      const img = $("stream");
+      view.hidden = true;
+      img.hidden = false;
+      img.src = probe.src;
+      if (probe.naturalWidth > 0 && probe.naturalHeight > 0) {
+        state.aspect = probe.naturalWidth / probe.naturalHeight;
+        fit();
+      }
+      $("stage-meta").textContent = "GT 30 Pro · gambar";
+      state.jpegTimer = setTimeout(pump, 90);
+    };
+    probe.onerror = () => {
+      state.jpegMiss += 1;
+      if (state.jpegMiss === 8) {
+        $("stage-meta").textContent = "Belum ada gambar. Pastikan pantulan di GT 30 Pro hidup.";
+      }
+      state.jpegTimer = setTimeout(pump, 280);
+    };
+    probe.src = "/frame.jpg?token=" + encodeURIComponent(state.token) + "&t=" + Date.now();
+  };
+  pump();
+}
+
+function startMjpeg() {
+  startJpeg();
 }
 
 function splitNals(data) {

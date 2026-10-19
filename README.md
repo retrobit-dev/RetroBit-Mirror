@@ -14,13 +14,14 @@ Semua lalu lintas ada di Wi-Fi lokal. Tidak ada akun, tidak ada server internet.
 
 Di GT 30 Pro ada dua tata letak:
 
-- **Belah**: 1/4 kiri dan 1/4 kanan adalah kontrol, 1/2 tengah adalah game. MatePad hanya menerima bagian tengah, jadi gamepad tidak ikut tampil.
+- **Belah**: potret memakai 1/4 kiri dan 1/4 kanan untuk kontrol, tengah untuk game. Landscape memakai panel yang lebih sempit supaya area game lebih lebar. MatePad menerima game, bukan tombol.
 - **Layar tambahan**: ponsel hanya menampilkan kontrol. MatePad menampilkan aplikasi yang dipilih pada dialog tangkap layar. Pilih satu aplikasi, bukan seluruh layar.
+- **Sembunyikan layar ponsel**: saat MatePad tersambung, tengah layar GT 30 Pro bisa ditutup. Gambar tetap dikirim. Aktifkan aksesibilitas RetroBit di ponsel, supaya penutup tidak ikut tertangkap.
 
 ## Yang bisa dilakukan
 
 - Pantulan layar H.264 latensi rendah (preset Kompetitif 60 fps, Seimbang, Tajam).
-- Cadangan MJPEG di browser kalau WebCodecs tidak ada.
+- Cadangan JPEG di browser kalau WebCodecs tidak ada. Browser MatePad tidak perlu H.264.
 - Sentuhan, stylus, dan mouse di area layar.
 - Gamepad virtual: stick, ABXY, D-pad, bahu, plus **GT L / GT R**.
 - Gamepad Bluetooth dan keyboard disambungkan ke ponsel, lalu disuntikkan ke game di ponsel. Tablet tidak menerima input.
@@ -56,10 +57,10 @@ Tanpa Shizuku, layar tetap bisa dipantulkan. Kontrol analog-nya yang belum layak
 
 Setiap push menjalankan GitHub Actions dan menghasilkan dua APK:
 
-- `RetroBit-Mirror-release` — pasang di ponsel dan tablet. File di dalamnya `RetroBit-Mirror-1.2.0.apk`.
+- `RetroBit-Mirror-release` — pasang di ponsel dan tablet. File di dalamnya `RetroBit-Mirror-1.3.0.apk`.
 - `RetroBit-Mirror-debug` — hanya untuk pengembangan.
 
-Unduh dari tab Actions pada run yang hijau, atau dari [Releases](https://github.com/retrobit-dev/RetroBit-Mirror/releases) kalau run-nya menerbitkan rilis `v1.2.0`.
+Unduh dari tab Actions pada run yang hijau, atau dari [Releases](https://github.com/retrobit-dev/RetroBit-Mirror/releases) kalau run-nya menerbitkan rilis `v1.3.0`.
 
 APK rilis ditandatangani dengan kunci tetap di `signing/`. Build berikutnya bisa dipasang di atas yang lama tanpa hapus data. Kalau sebelumnya terpasang APK debug, Android menolak karena tanda tangannya berbeda: hapus dulu, lalu pasang rilis.
 

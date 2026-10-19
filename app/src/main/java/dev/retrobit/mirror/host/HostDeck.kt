@@ -17,6 +17,7 @@ import android.widget.TextView
 import dev.retrobit.mirror.client.PadMapper
 import dev.retrobit.mirror.client.PadState
 import dev.retrobit.mirror.input.InputHub
+import dev.retrobit.mirror.input.RetroBitAccessibilityService
 import dev.retrobit.mirror.model.Control
 import dev.retrobit.mirror.model.Profiles
 import dev.retrobit.mirror.model.ViewMode
@@ -26,12 +27,11 @@ import kotlin.math.hypot
 import kotlin.math.min
 
 /**
- * Controller drawn on the GT 30 Pro. Split mode leaves the center half of the
- * screen open so the game, and GT Trigger, stay visible. Extended mode covers
- * the phone with controls only.
+ * Controller on the GT 30 Pro. Drawn as an accessibility overlay when possible
+ * so MediaProjection sends the game, not these panels, to the MatePad.
  */
 class HostDeck(private val context: Context) {
-    private val wm = context.getSystemService(WindowManager::class.java)
+    private var wm: WindowManager = context.getSystemService(WindowManager::class.java)
     private val main = Handler(Looper.getMainLooper())
     private val windows = ArrayList<View>()
     private val pad = PadState()
@@ -52,16 +52,27 @@ class HostDeck(private val context: Context) {
         }
     }
 
-    fun show(mode: String) {
+    fun show(mode: String, hideCenter: Boolean, access: RetroBitAccessibilityService?) {
         hide()
         profile = loadProfile()
-        val size = DisplayInfo.realSize(context)
-        val panelW = size.first / 4
-        if (mode == ViewMode.EXTENDED) {
-            add(labelWindow(size.first, size.second, 0, "Layar penuh ada di MatePad"), touchable = false)
+        val windowContext: Context = access ?: context
+        wm = windowContext.getSystemService(WindowManager::class.java)
+        val excluded = access != null
+        val size = DisplayInfo.currentSize(windowContext)
+        val landscape = size.first > size.second
+        val panelW = if (landscape) {
+            val minW = (size.first / 6).coerceAtLeast(dp(108))
+            val maxW = (size.first / 4).coerceAtLeast(minW)
+            dp(168).coerceIn(minW, maxW)
+        } else {
+            (size.first / 4).coerceAtLeast(dp(92))
         }
-        add(panel(panelW, size.second, 0, left = true), touchable = true)
-        add(panel(panelW, size.second, size.first - panelW, left = false), touchable = true)
+        if (excluded && (hideCenter || mode == ViewMode.EXTENDED)) {
+            val cover = coverView(if (hideCenter || mode == ViewMode.EXTENDED) "Layar ada di MatePad" else "Layar penuh ada di MatePad")
+            place(cover, panelW, 0, size.first - panelW * 2, size.second, touchable = false, excluded = true)
+        }
+        place(panel(panelW, size.second, left = true, landscape = landscape), 0, 0, panelW, size.second, true, excluded)
+        place(panel(panelW, size.second, left = false, landscape = landscape), size.first - panelW, 0, panelW, size.second, true, excluded)
         main.post(tick)
     }
 
@@ -83,63 +94,96 @@ class HostDeck(private val context: Context) {
     }
 
     private fun loadProfile() = Profiles.fromJson(Prefs.profiles(context))
-        .firstOrNull { it.id == Prefs.activeProfile(context) }
+        .firstOrNull { it.id == Prefs.activeProfile(context) && it.controls.isNotEmpty() }
         ?: Profiles.moba()
 
-    private fun panel(width: Int, height: Int, x: Int, left: Boolean): View {
+    private fun panel(width: Int, height: Int, left: Boolean, landscape: Boolean): View {
         val root = FrameLayout(context)
-        root.background = plate(0xCC10141C.toInt(), 0)
-        root.tag = x
+        root.background = plate(0xE610141C.toInt(), 0)
         val controls = profile.controls.filter { control ->
             val visual = if (control.linked) control.x else control.ux
             if (left) visual < 0.5f else visual >= 0.5f
         }
+        val widgets = ArrayList<Pair<View, Int>>()
         controls.forEach { control ->
             if (control.kind == "dpad") {
-                listOf("du" to "U", "dd" to "D", "dl" to "L", "dr" to "R").forEachIndexed { index, (id, label) ->
-                    val view = button(control.copy(id = id, label = label, kind = "button"))
-                    val size = (width * 0.34f).toInt().coerceAtLeast(dp(36))
-                    val lp = FrameLayout.LayoutParams(size, size)
-                    lp.leftMargin = if (index % 2 == 0) dp(8) else width - size - dp(8)
-                    lp.topMargin = (control.uy * height + (index / 2) * (size + dp(6))).toInt().coerceIn(0, (height - size).coerceAtLeast(0))
-                    root.addView(view, lp)
-                }
+                widgets += dpad(control) to (width * 0.72f).toInt()
+            } else if (control.kind == "stick") {
+                widgets += stick(control) to (width * if (landscape) 0.78f else 0.7f).toInt()
+            } else if (control.id in setOf("a", "b", "x", "y") && !left) {
+                // Face buttons are grouped below.
             } else {
-                val view = if (control.kind == "stick") stick(control) else button(control)
-                val size = (width * if (control.kind == "stick") 0.72f else 0.48f).toInt()
-                val lp = FrameLayout.LayoutParams(size, size)
-                lp.leftMargin = ((width - size) / 2).coerceAtLeast(0)
-                lp.topMargin = (control.uy * height - size / 2f).toInt().coerceIn(dp(8), (height - size - dp(8)).coerceAtLeast(dp(8)))
-                root.addView(view, lp)
+                widgets += button(control) to (width * 0.42f).toInt().coerceAtLeast(dp(44))
             }
         }
+        if (!left) {
+            val faces = profile.controls.filter { it.id in setOf("a", "b", "x", "y") }
+            if (faces.isNotEmpty()) widgets += faceGrid(faces, width) to (width * 0.78f).toInt()
+        }
+        val gap = dp(8)
+        val usable = (height - dp(56)).coerceAtLeast(dp(80))
+        val raw = widgets.sumOf { it.second } + gap * (widgets.size - 1).coerceAtLeast(0)
+        val scale = if (raw > usable) usable.toFloat() / raw.toFloat() else 1f
+        var y = dp(46) + ((usable - (raw * scale).toInt()) / 2).coerceAtLeast(0)
+        widgets.forEach { (view, size) ->
+            val box = (size * scale).toInt().coerceAtMost(width - dp(10)).coerceAtLeast(dp(36))
+            val lp = FrameLayout.LayoutParams(box, if (view is LinearLayout) FrameLayout.LayoutParams.WRAP_CONTENT else box)
+            lp.leftMargin = (width - box) / 2
+            lp.topMargin = y.coerceAtMost((height - dp(40)).coerceAtLeast(0))
+            root.addView(view, lp)
+            y += box + (gap * scale).toInt()
+        }
         val bar = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
+            orientation = if (landscape) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             setPadding(dp(6), dp(6), dp(6), dp(6))
         }
         bar.addView(chip(profile.name) {
-            val all = Profiles.fromJson(Prefs.profiles(context)).ifEmpty { Profiles.defaults() }
+            val all = Profiles.fromJson(Prefs.profiles(context)).filter { it.controls.isNotEmpty() }.ifEmpty { Profiles.defaults() }
             val idx = all.indexOfFirst { it.id == profile.id }.coerceAtLeast(0)
             val next = all[(idx + 1) % all.size]
             Prefs.setActiveProfile(context, next.id)
             profile = next
             mapper.reset()
-            main.post { show(Prefs.viewMode(context)) }
+            main.post { MirrorHostService.setMode(context, Prefs.viewMode(context)) }
         })
         if (left) {
-            bar.addView(chip(if (Prefs.viewMode(context) == ViewMode.EXTENDED) "Belah" else "Tambah") {
-                val next = if (Prefs.viewMode(context) == ViewMode.EXTENDED) ViewMode.SPLIT else ViewMode.EXTENDED
-                main.post { MirrorHostService.setMode(context, next) }
+            bar.addView(chip(if (Prefs.hideWhenConnected(context)) "Tampil di HP" else "Sembunyi") {
+                Prefs.setHideWhenConnected(context, !Prefs.hideWhenConnected(context))
+                main.post { MirrorHostService.setMode(context, Prefs.viewMode(context)) }
             })
         }
         root.addView(bar, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
         return root
     }
 
+    private fun faceGrid(faces: List<Control>, width: Int): View {
+        val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val order = listOf("y", "x", "b", "a")
+        val ordered = order.mapNotNull { id -> faces.firstOrNull { it.id == id } }
+        ordered.chunked(2).forEach { row ->
+            val line = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+            row.forEach { control ->
+                val view = button(control)
+                val size = (width * 0.36f).toInt().coerceAtLeast(dp(42))
+                line.addView(view, LinearLayout.LayoutParams(size, size).apply { setMargins(dp(4), dp(4), dp(4), dp(4)) })
+            }
+            grid.addView(line)
+        }
+        return grid
+    }
+
+    private fun dpad(control: Control): View {
+        val box = FrameLayout(context)
+        listOf("du" to Gravity.TOP, "dd" to Gravity.BOTTOM, "dl" to Gravity.START, "dr" to Gravity.END).forEach { (id, gravity) ->
+            val view = button(control.copy(id = id, label = id.drop(1).uppercase(), kind = "button"))
+            val lp = FrameLayout.LayoutParams(dp(40), dp(40), gravity)
+            box.addView(view, lp)
+        }
+        return box
+    }
+
     private fun stick(control: Control): View {
         return object : View(context) {
-            private var kx = 0f
-            private var ky = 0f
             init {
                 background = plate(if (control.id == "rs") 0x553EE0FF else 0x55FF7A1A, dp(99))
             }
@@ -153,15 +197,9 @@ class HostDeck(private val context: Context) {
                         val dy = event.y - height / 2f
                         val mag = hypot(dx, dy).coerceAtLeast(0.001f)
                         val scale = min(1f, max / mag)
-                        kx = dx * scale
-                        ky = dy * scale
-                        apply(kx / max, ky / max, true)
+                        apply((dx * scale) / max, (dy * scale) / max, true)
                     }
-                    else -> {
-                        kx = 0f
-                        ky = 0f
-                        apply(0f, 0f, false)
-                    }
+                    else -> apply(0f, 0f, false)
                 }
                 return true
             }
@@ -180,8 +218,9 @@ class HostDeck(private val context: Context) {
         }
     }
 
-    private fun button(control: Control): View {
-        val label = TextView(context).apply {
+    @SuppressLint("ClickableViewAccessibility")
+    private fun button(control: Control): TextView {
+        return TextView(context).apply {
             text = control.label
             setTextColor(if (control.gt) 0xFFFFC14A.toInt() else 0xFFFF7A1A.toInt())
             textSize = 12f
@@ -196,7 +235,6 @@ class HostDeck(private val context: Context) {
                 true
             }
         }
-        return label
     }
 
     private fun chip(text: String, onClick: () -> Unit): TextView {
@@ -211,35 +249,22 @@ class HostDeck(private val context: Context) {
         }
     }
 
-    private fun labelWindow(width: Int, height: Int, x: Int, text: String): View {
+    private fun coverView(text: String): TextView {
         return TextView(context).apply {
             this.text = text
             setTextColor(0xFFF4F1EA.toInt())
-            textSize = 16f
+            textSize = 18f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setPadding(dp(24), dp(24), dp(24), dp(24))
-            background = plate(0xF0101218.toInt(), 0)
-            tag = x
+            background = plate(0xF007080C.toInt(), 0)
         }
     }
 
-    private fun add(view: View, touchable: Boolean) {
-        val size = DisplayInfo.realSize(context)
-        val width = if (view is TextView && view.gravity == Gravity.CENTER && view.background != null && view.tag == null) {
-            WindowManager.LayoutParams.WRAP_CONTENT
-        } else if (view.tag is Int && view is TextView) {
-            size.first
-        } else {
-            size.first / 4
-        }
-        val height = if (width == WindowManager.LayoutParams.WRAP_CONTENT) {
-            WindowManager.LayoutParams.WRAP_CONTENT
-        } else {
-            size.second
-        }
-        val x = (view.tag as? Int) ?: 0
-        val type = if (Build.VERSION.SDK_INT >= 26) {
+    private fun place(view: View, x: Int, y: Int, width: Int, height: Int, touchable: Boolean, excluded: Boolean) {
+        val type = if (excluded) {
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+        } else if (Build.VERSION.SDK_INT >= 26) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
             @Suppress("DEPRECATION")
@@ -252,7 +277,13 @@ class HostDeck(private val context: Context) {
         val params = WindowManager.LayoutParams(width, height, type, flags, android.graphics.PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.TOP or Gravity.START
             this.x = x
-            this.y = 0
+            this.y = y
+            if (excluded && Build.VERSION.SDK_INT >= 31) {
+                try {
+                    setTrustedOverlay()
+                } catch (_: Throwable) {
+                }
+            }
         }
         wm.addView(view, params)
         windows += view

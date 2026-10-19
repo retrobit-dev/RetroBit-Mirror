@@ -1,34 +1,34 @@
 package dev.retrobit.mirror.capture
 
-import android.hardware.display.DisplayManager
-import android.hardware.display.VirtualDisplay
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
-import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Surface
 import dev.retrobit.mirror.model.QualityPreset
 import dev.retrobit.mirror.util.DisplayInfo
 import java.nio.ByteBuffer
 
+/**
+ * Encodes the single MediaProjection surface. Android 14+ allows only one
+ * VirtualDisplay per consent, so this class never creates one itself.
+ */
 class ScreenEncoder(
-    private val projection: MediaProjection,
     private var displayW: Int,
     private var displayH: Int,
-    private val dpi: Int,
     private val preset: QualityPreset,
-    private val cropFraction: Float = 0f,
+    private val onAttach: (Surface, Int, Int) -> Unit,
+    private val onDetach: () -> Unit,
     private val onConfig: (width: Int, height: Int, csd: ByteArray) -> Unit,
     private val onFrame: (data: ByteArray, keyframe: Boolean, ptsUs: Long) -> Unit,
     private val onError: (String) -> Unit
 ) {
     private var codec: MediaCodec? = null
-    private var display: VirtualDisplay? = null
     private var surface: Surface? = null
-    private var cropper: FrameCropper? = null
     private var thread: Thread? = null
 
     @Volatile
@@ -46,17 +46,7 @@ class ScreenEncoder(
     fun start() {
         if (running) return
         running = true
-        thread = Thread({
-            try {
-                openEncoder()
-                drain()
-            } catch (t: Throwable) {
-                Log.e(TAG, "encoder", t)
-                if (running) onError(t.message ?: "Encoder gagal")
-            } finally {
-                releaseCodec()
-            }
-        }, "retrobit-h264").also { it.start() }
+        Handler(Looper.getMainLooper()).post { boot() }
     }
 
     fun stop() {
@@ -65,7 +55,10 @@ class ScreenEncoder(
             codec?.signalEndOfInputStream()
         } catch (_: Throwable) {
         }
-        thread?.join(800)
+        val worker = thread
+        if (worker != null && worker !== Thread.currentThread()) worker.join(800)
+        if (Looper.myLooper() == Looper.getMainLooper()) onDetach()
+        else Handler(Looper.getMainLooper()).post { onDetach() }
         releaseCodec()
     }
 
@@ -85,12 +78,51 @@ class ScreenEncoder(
         start()
     }
 
+    private fun boot() {
+        if (!running) return
+        try {
+            openEncoder()
+        } catch (t: Throwable) {
+            Log.e(TAG, "encoder", t)
+            running = false
+            onError(t.message ?: "Encoder gagal")
+            onDetach()
+            releaseCodec()
+            return
+        }
+        if (!running) return
+        thread = Thread({
+            try {
+                drain()
+            } catch (t: Throwable) {
+                Log.e(TAG, "encoder", t)
+                if (running) onError(t.message ?: "Encoder gagal")
+            } finally {
+                releaseCodec()
+            }
+        }, "retrobit-h264").also { it.start() }
+    }
+
     private fun openEncoder() {
         val fitted = DisplayInfo.evenFit(displayW, displayH, preset.maxSide)
-        val crop = cropFraction.coerceIn(0f, 0.4f)
-        val croppedW = if (crop > 0f) ((fitted.first * (1f - crop * 2f)).toInt() / 2) * 2 else fitted.first
-        width = croppedW.coerceAtLeast(2)
-        height = fitted.second
+        val aligned = (fitted.first / 16 * 16).coerceAtLeast(16) to (fitted.second / 16 * 16).coerceAtLeast(16)
+        var last: Throwable? = null
+        for (size in listOf(fitted, aligned).distinct()) {
+            try {
+                startCodec(size.first, size.second)
+                return
+            } catch (t: Throwable) {
+                last = t
+                Log.w(TAG, "size ${size.first}x${size.second} rejected: ${t.message}")
+                releaseCodec()
+            }
+        }
+        throw last ?: IllegalStateException("Encoder gagal")
+    }
+
+    private fun startCodec(w: Int, h: Int) {
+        width = w
+        height = h
         val bitrate = (preset.bpp * width * height * preset.fps).toInt().coerceIn(900_000, 16_000_000)
         val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         this.codec = codec
@@ -103,24 +135,8 @@ class ScreenEncoder(
         val input = codec.createInputSurface()
         surface = input
         codec.start()
-        val mirror = if (crop > 0f) {
-            val compositor = FrameCropper(input, width, height, fitted.first, fitted.second, crop, 1f - crop)
-            cropper = compositor
-            compositor.inputSurface
-        } else {
-            input
-        }
-        display = projection.createVirtualDisplay(
-            "RetroBit",
-            if (crop > 0f) fitted.first else width,
-            if (crop > 0f) fitted.second else height,
-            dpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            mirror,
-            null,
-            null
-        )
-        Log.i(TAG, "encoder ${width}x$height crop=$crop @${preset.fps} ${bitrate / 1000}kbps")
+        onAttach(input, width, height)
+        Log.i(TAG, "encoder ${width}x$height @${preset.fps} ${bitrate / 1000}kbps")
     }
 
     private fun drain() {
@@ -163,16 +179,6 @@ class ScreenEncoder(
     }
 
     private fun releaseCodec() {
-        try {
-            display?.release()
-        } catch (_: Throwable) {
-        }
-        display = null
-        try {
-            cropper?.release()
-        } catch (_: Throwable) {
-        }
-        cropper = null
         try {
             codec?.stop()
         } catch (_: Throwable) {
