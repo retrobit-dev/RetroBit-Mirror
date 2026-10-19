@@ -68,6 +68,7 @@ const state = {
   aspect: 20 / 9,
   injection: "demo",
   videoMode: "demo",
+  mirrorView: "SCREEN",
   pad: { lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0, buttons: {}, touchLs: false, touchRs: false },
   held: {},
   look: {},
@@ -587,6 +588,10 @@ function onText(raw) {
       fit();
     }
     if (msg.injection) state.injection = msg.injection;
+    if (msg.mirrorView) {
+      state.mirrorView = msg.mirrorView;
+      labelView();
+    }
     if (msg.name) $("stage-meta").textContent = msg.name + (msg.injection ? " · " + msg.injection : "");
     banner();
   }
@@ -865,6 +870,20 @@ $("edit-toggle").addEventListener("click", () => {
   $("edit-toggle").classList.toggle("on", state.editing);
   $("edit-toggle").textContent = state.editing ? "Selesai" : "Edit";
 });
+$("view-toggle").addEventListener("click", () => {
+  const next = state.mirrorView === "BOTH" ? "SCREEN" : "BOTH";
+  state.mirrorView = next;
+  labelView();
+  if (state.ws && state.ws.readyState === 1) {
+    state.ws.send(JSON.stringify({ type: "view", mode: next }));
+  }
+});
+function labelView() {
+  const node = $("view-toggle");
+  if (!node) return;
+  node.textContent = state.mirrorView === "BOTH" ? "Layar + gamepad" : "Layar saja";
+  node.classList.toggle("on", state.mirrorView === "BOTH");
+}
 $("full").addEventListener("click", () => {
   if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
   else document.exitFullscreen?.();

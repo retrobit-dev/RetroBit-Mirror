@@ -33,7 +33,8 @@ data class ClientStats(
     val videoW: Int = 1224,
     val videoH: Int = 2720,
     val injection: String = "unknown",
-    val hostName: String = ""
+    val hostName: String = "",
+    val mirrorView: String = "SCREEN"
 )
 
 object HardwareInput {
@@ -127,7 +128,8 @@ class MirrorClient {
                                         hostName = json.optString("name", host),
                                         videoW = json.optInt("videoW", stats.value.videoW).coerceAtLeast(2),
                                         videoH = json.optInt("videoH", stats.value.videoH).coerceAtLeast(2),
-                                        injection = json.optString("injection", "unknown")
+                                        injection = json.optString("injection", "unknown"),
+                                        mirrorView = json.optString("mirrorView", "SCREEN").ifBlank { "SCREEN" }
                                     )
                                     ensureDecoder()
                                     startJpeg(host, json.optInt("httpPort", 28731), pin)
@@ -139,6 +141,7 @@ class MirrorClient {
                                 val h = json.optInt("videoH", 0)
                                 stats.value = stats.value.copy(
                                     injection = json.optString("injection", stats.value.injection),
+                                    mirrorView = json.optString("mirrorView", stats.value.mirrorView),
                                     videoW = if (w > 0) w else stats.value.videoW,
                                     videoH = if (h > 0) h else stats.value.videoH
                                 )
@@ -221,6 +224,11 @@ class MirrorClient {
     fun detachSurface() {
         surface = null
         decoder?.setSurface(null)
+    }
+
+    fun sendView(mode: String) {
+        val json = JSONObject().put("type", "view").put("mode", mode).toString()
+        writer?.sendControl(Proto.encodeUtf(Proto.INPUT, 0, json))
     }
 
     fun requestKeyframe() {

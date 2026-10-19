@@ -19,6 +19,7 @@ import dev.retrobit.mirror.client.PadState
 import dev.retrobit.mirror.input.InputHub
 import dev.retrobit.mirror.input.RetroBitAccessibilityService
 import dev.retrobit.mirror.model.Control
+import dev.retrobit.mirror.model.MirrorView
 import dev.retrobit.mirror.model.Profiles
 import dev.retrobit.mirror.model.ViewMode
 import dev.retrobit.mirror.util.DisplayInfo
@@ -33,7 +34,7 @@ import kotlin.math.min
 class HostDeck(private val context: Context) {
     private var wm: WindowManager = context.getSystemService(WindowManager::class.java)
     private val main = Handler(Looper.getMainLooper())
-    private val windows = ArrayList<View>()
+    private val windows = ArrayList<Pair<View, WindowManager>>()
     private val pad = PadState()
     private val mapper = PadMapper { id, action, x, y ->
         val code = when (action) {
@@ -52,13 +53,11 @@ class HostDeck(private val context: Context) {
         }
     }
 
-    fun show(mode: String, hideCenter: Boolean, access: RetroBitAccessibilityService?) {
+    fun show(mode: String, hideCenter: Boolean, access: RetroBitAccessibilityService?, includePad: Boolean) {
         hide()
         profile = loadProfile()
-        val windowContext: Context = access ?: context
-        wm = windowContext.getSystemService(WindowManager::class.java)
-        val excluded = access != null
-        val size = DisplayInfo.currentSize(windowContext)
+        val sizeContext: Context = access ?: context
+        val size = DisplayInfo.currentSize(sizeContext)
         val landscape = size.first > size.second
         val panelW = if (landscape) {
             val minW = (size.first / 6).coerceAtLeast(dp(108))
@@ -67,12 +66,16 @@ class HostDeck(private val context: Context) {
         } else {
             (size.first / 4).coerceAtLeast(dp(92))
         }
-        if (excluded && (hideCenter || mode == ViewMode.EXTENDED)) {
+        val panelManager = (if (includePad || access == null) context else access).getSystemService(WindowManager::class.java)
+        val excludePad = !includePad && access != null
+        if (access != null && (hideCenter || (mode == ViewMode.EXTENDED && !includePad))) {
             val cover = coverView(if (hideCenter || mode == ViewMode.EXTENDED) "Layar ada di MatePad" else "Layar penuh ada di MatePad")
-            place(cover, panelW, 0, size.first - panelW * 2, size.second, touchable = false, excluded = true)
+            val coverManager = access.getSystemService(WindowManager::class.java)
+            place(cover, panelW, 0, size.first - panelW * 2, size.second, touchable = false, excluded = true, manager = coverManager)
         }
-        place(panel(panelW, size.second, left = true, landscape = landscape), 0, 0, panelW, size.second, true, excluded)
-        place(panel(panelW, size.second, left = false, landscape = landscape), size.first - panelW, 0, panelW, size.second, true, excluded)
+        place(panel(panelW, size.second, left = true, landscape = landscape), 0, 0, panelW, size.second, true, excludePad, panelManager)
+        place(panel(panelW, size.second, left = false, landscape = landscape), size.first - panelW, 0, panelW, size.second, true, excludePad, panelManager)
+        wm = panelManager
         main.post(tick)
     }
 
@@ -84,9 +87,9 @@ class HostDeck(private val context: Context) {
         pad.rx = 0f
         pad.ry = 0f
         pad.buttons.clear()
-        windows.forEach { view ->
+        windows.forEach { (view, manager) ->
             try {
-                wm.removeView(view)
+                manager.removeView(view)
             } catch (_: Throwable) {
             }
         }
@@ -149,6 +152,12 @@ class HostDeck(private val context: Context) {
         if (left) {
             bar.addView(chip(if (Prefs.hideWhenConnected(context)) "Tampil di HP" else "Sembunyi") {
                 Prefs.setHideWhenConnected(context, !Prefs.hideWhenConnected(context))
+                main.post { MirrorHostService.setMode(context, Prefs.viewMode(context)) }
+            })
+        } else {
+            bar.addView(chip(if (MirrorView.includesPad(Prefs.mirrorView(context))) "Layar saja" else "Layar+Pad") {
+                val next = if (MirrorView.includesPad(Prefs.mirrorView(context))) MirrorView.SCREEN else MirrorView.BOTH
+                Prefs.setMirrorView(context, next)
                 main.post { MirrorHostService.setMode(context, Prefs.viewMode(context)) }
             })
         }
@@ -261,7 +270,16 @@ class HostDeck(private val context: Context) {
         }
     }
 
-    private fun place(view: View, x: Int, y: Int, width: Int, height: Int, touchable: Boolean, excluded: Boolean) {
+    private fun place(
+        view: View,
+        x: Int,
+        y: Int,
+        width: Int,
+        height: Int,
+        touchable: Boolean,
+        excluded: Boolean,
+        manager: WindowManager = wm
+    ) {
         val type = if (excluded) {
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
         } else if (Build.VERSION.SDK_INT >= 26) {
@@ -279,8 +297,8 @@ class HostDeck(private val context: Context) {
             this.x = x
             this.y = y
         }
-        wm.addView(view, params)
-        windows += view
+        manager.addView(view, params)
+        windows += view to manager
     }
 
     private fun plate(color: Int, radius: Int): GradientDrawable {

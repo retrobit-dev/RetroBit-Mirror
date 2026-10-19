@@ -12,6 +12,15 @@ object ViewMode {
     fun crop(mode: String): Float = if (mode == EXTENDED) 0f else 0.25f
 }
 
+object MirrorView {
+    const val SCREEN = "SCREEN"
+    const val BOTH = "BOTH"
+
+    fun normalize(value: String?): String = if (value == BOTH) BOTH else SCREEN
+
+    fun includesPad(value: String?): Boolean = normalize(value) == BOTH
+}
+
 enum class QualityPreset(
     val id: String,
     val label: String,
@@ -70,7 +79,8 @@ data class HostUiState(
     val error: String? = null,
     val lastInput: String = "Belum ada input",
     val hint: String? = null,
-    val viewMode: String = ViewMode.SPLIT
+    val viewMode: String = ViewMode.SPLIT,
+    val mirrorView: String = MirrorView.SCREEN
 )
 
 data class FoundHost(

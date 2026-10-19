@@ -192,7 +192,7 @@ private fun GuideScreen(onBack: () -> Unit) {
         GuideBlock(
             "2",
             "MatePad hanya layar",
-            "Pasang APK yang sama dan pilih MatePad Mini, atau buka URL dari ponsel di browser. Tablet menampilkan layar game tanpa gamepad. Semua input dilakukan di GT 30 Pro."
+            "Pasang APK yang sama dan pilih MatePad Mini, atau buka URL dari ponsel di browser. Pilih Layar saja atau Layar + gamepad. Semua ketukan tetap dilakukan di GT 30 Pro."
         )
         GuideBlock(
             "3",

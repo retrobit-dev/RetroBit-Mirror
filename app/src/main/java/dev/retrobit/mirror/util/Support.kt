@@ -9,6 +9,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.util.DisplayMetrics
 import android.view.WindowManager
+import dev.retrobit.mirror.model.MirrorView
 import dev.retrobit.mirror.model.ViewMode
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -207,6 +208,12 @@ object Prefs {
 
     fun setHideWhenConnected(context: Context, on: Boolean) {
         sp(context).edit().putBoolean("hideWhenConnected", on).apply()
+    }
+
+    fun mirrorView(context: Context): String = MirrorView.normalize(sp(context).getString("mirrorView", MirrorView.SCREEN))
+
+    fun setMirrorView(context: Context, value: String) {
+        sp(context).edit().putString("mirrorView", MirrorView.normalize(value)).apply()
     }
 
     fun hostName(context: Context): String {

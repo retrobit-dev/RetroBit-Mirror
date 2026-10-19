@@ -264,6 +264,7 @@ class WebPortal(
                     when (obj?.optString("type")) {
                         "ping" -> text(JSONObject().put("type", "pong").put("t", obj.optLong("t")).toString())
                         "keyframe" -> session.requestKey()
+                        "view" -> InputHub.handlePayload(textBody)
                         "input" -> InputHub.handlePayload(textBody)
                         else -> if (obj?.has("events") == true) InputHub.handlePayload(textBody)
                     }

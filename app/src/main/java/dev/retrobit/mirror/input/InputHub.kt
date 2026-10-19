@@ -49,6 +49,10 @@ object InputHub {
             HostRuntime.session?.requestKey()
             return
         }
+        if (root.optString("type") == "view") {
+            HostRuntime.onMirrorView?.invoke(root.optString("mode"))
+            return
+        }
         val events = root.optJSONArray("events") ?: return
         var note = ""
         for (i in 0 until events.length()) {

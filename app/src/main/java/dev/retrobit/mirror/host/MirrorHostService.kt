@@ -82,9 +82,12 @@ class MirrorHostService : Service() {
                 val mode = ViewMode.normalize(intent.getStringExtra(EXTRA_MODE))
                 Prefs.setViewMode(this, mode)
                 if (HostRuntime.session != null) {
-                    HostRuntime.update { it.copy(viewMode = mode) }
+                    HostRuntime.update {
+                        it.copy(viewMode = mode, mirrorView = Prefs.mirrorView(this))
+                    }
                     deckStamp = ""
                     refreshDeck()
+                    HostRuntime.session?.publishState()
                 }
                 return START_NOT_STICKY
             }
@@ -155,6 +158,13 @@ class MirrorHostService : Service() {
                 audio = capture
             }
 
+            HostRuntime.onMirrorView = { mode ->
+                Prefs.setMirrorView(this, mode)
+                HostRuntime.update { it.copy(mirrorView = dev.retrobit.mirror.model.MirrorView.normalize(mode)) }
+                deckStamp = ""
+                refreshDeck()
+                HostRuntime.session?.publishState()
+            }
             watchDisplay()
             watchStats()
             if (Prefs.bubble(this)) showBubble()
@@ -175,6 +185,7 @@ class MirrorHostService : Service() {
                     shizuku = ShizukuGate.status,
                     accessibility = dev.retrobit.mirror.input.RetroBitAccessibilityService.instance != null,
                     viewMode = Prefs.viewMode(this),
+                    mirrorView = Prefs.mirrorView(this),
                     hint = if (DeviceHints.isHuawei()) {
                         "Perangkat ini hanya menampilkan. Semua kontrol ada di GT 30 Pro."
                     } else {
@@ -320,29 +331,36 @@ class MirrorHostService : Service() {
         val size = DisplayInfo.currentSize(this)
         val connected = HostRuntime.state.value.clients.isNotEmpty()
         val access = dev.retrobit.mirror.input.RetroBitAccessibilityService.instance != null
+        val includePad = dev.retrobit.mirror.model.MirrorView.includesPad(Prefs.mirrorView(this))
+        val canOverlay = Build.VERSION.SDK_INT < 23 || android.provider.Settings.canDrawOverlays(this)
         val hide = Prefs.hideWhenConnected(this) && connected && access
-        val stamp = "${size.first}x${size.second}|${Prefs.viewMode(this)}|$hide|$access|$connected"
+        val stamp = "${size.first}x${size.second}|${Prefs.viewMode(this)}|$hide|$access|$connected|$includePad|$canOverlay"
         if (stamp == deckStamp) return
         deckStamp = stamp
-        showDeck(Prefs.viewMode(this), hide)
+        showDeck(Prefs.viewMode(this), hide, includePad)
     }
 
-    private fun showDeck(mode: String, hideCenter: Boolean = false) {
+    private fun showDeck(mode: String, hideCenter: Boolean = false, includePad: Boolean = false) {
         val access = dev.retrobit.mirror.input.RetroBitAccessibilityService.instance
         val canOverlay = Build.VERSION.SDK_INT < 23 || android.provider.Settings.canDrawOverlays(this)
-        if (access == null && !canOverlay) {
+        if (includePad && !canOverlay) {
+            HostRuntime.update {
+                it.copy(error = "Izinkan tampil di atas aplikasi lain supaya MatePad menampilkan gamepad bersama layar.")
+            }
+        } else if (access == null && !canOverlay) {
             HostRuntime.update {
                 it.copy(error = "Aktifkan aksesibilitas RetroBit supaya MatePad melihat game, bukan kontrol, dan layar ponsel bisa disembunyikan.")
             }
             return
-        }
-        if (access == null) {
+        } else if (!includePad && access == null) {
             HostRuntime.update {
-                it.copy(hint = "Aktifkan aksesibilitas RetroBit. Tanpa itu, overlay kontrol ikut terkirim dan layar ponsel tidak bisa disembunyikan.")
+                it.copy(hint = "Aktifkan aksesibilitas RetroBit. Tanpa itu, gamepad ikut tampil di MatePad.")
             }
+        } else if (includePad) {
+            HostRuntime.update { it.copy(hint = "MatePad menampilkan layar dan gamepad. Kontrol tetap dilakukan di ponsel.") }
         }
         val shown = deck ?: HostDeck(this).also { deck = it }
-        main.post { shown.show(mode, hideCenter, access) }
+        main.post { shown.show(mode, hideCenter, access, includePad && canOverlay) }
     }
 
     private fun shutdown(error: String?) {
@@ -413,6 +431,7 @@ class MirrorHostService : Service() {
         }
         wifiLock = null
         cpuLock = null
+        HostRuntime.onMirrorView = null
         HostRuntime.session = null
         val ip = NetInfo.ipv4() ?: "Tidak ada Wi-Fi"
         HostRuntime.update {

@@ -20,6 +20,9 @@ object HostRuntime {
     @Volatile
     var session: HostSession? = null
 
+    @Volatile
+    var onMirrorView: ((String) -> Unit)? = null
+
     fun update(block: (HostUiState) -> HostUiState) {
         state.value = block(state.value)
     }
@@ -117,6 +120,7 @@ class HostSession(
             .put("displayW", InputHub.displayW)
             .put("displayH", InputHub.displayH)
             .put("injection", InputHub.injectionName())
+            .put("mirrorView", ui.mirrorView)
             .put("audio", audioCsd != null)
             .put("httpPort", ui.httpPort)
             .put("tcpPort", ui.tcpPort)
@@ -132,6 +136,7 @@ class HostSession(
             .put("displayW", InputHub.displayW)
             .put("displayH", InputHub.displayH)
             .put("injection", InputHub.injectionName())
+            .put("mirrorView", ui.mirrorView)
             .put("fps", ui.fps)
             .put("clients", ui.clients.size)
             .toString()

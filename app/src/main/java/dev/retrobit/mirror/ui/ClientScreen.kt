@@ -154,7 +154,7 @@ fun ClientBrowseScreen(client: MirrorClient, onBack: () -> Unit, onConnected: ()
                 client.connect(host, port, pin, DeviceHints.deviceName())
             }
         }, Modifier.fillMaxWidth(), enabled = pin.length >= 4 && manual.isNotBlank())
-        Text("Gamepad, keyboard, dan GT Trigger ada di GT 30 Pro. Jangan harapkan kontrol di tablet.", color = Muted, fontSize = 12.sp)
+        Text("Gamepad, keyboard, dan GT Trigger tetap di GT 30 Pro. Tampilan tablet bisa layar saja atau layar bersama gamepad.", color = Muted, fontSize = 12.sp)
     }
 }
 
@@ -322,10 +322,16 @@ fun PlayScreen(client: MirrorClient, onExit: () -> Unit) {
                     fontSize = 12.sp
                 )
                 Spacer(Modifier.weight(1f))
-                Text("Layar saja", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Chip(if (stats.mirrorView == "BOTH") "Layar + gamepad" else "Layar saja") {
+                    client.sendView(if (stats.mirrorView == "BOTH") "SCREEN" else "BOTH")
+                }
             }
             Text(
-                "Kontrol ada di GT 30 Pro. Tablet ini tidak mengirim sentuhan atau gamepad.",
+                if (stats.mirrorView == "BOTH") {
+                    "MatePad menampilkan layar dan gamepad. Ketukan tetap di GT 30 Pro."
+                } else {
+                    "MatePad hanya menampilkan layar. Gamepad tidak ikut dikirim."
+                },
                 color = Muted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 6.dp)

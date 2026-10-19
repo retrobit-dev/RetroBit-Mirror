@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import dev.retrobit.mirror.host.HostRuntime
 import dev.retrobit.mirror.input.InputHub
 import dev.retrobit.mirror.input.ShizukuGate
+import dev.retrobit.mirror.model.MirrorView
 import dev.retrobit.mirror.model.QualityPreset
 import dev.retrobit.mirror.model.ViewMode
 import dev.retrobit.mirror.util.Intents
@@ -56,6 +57,7 @@ fun HostScreen(
     var audio by rememberSaveable { mutableStateOf(Prefs.audio(context)) }
     var bubble by rememberSaveable { mutableStateOf(Prefs.bubble(context)) }
     var viewMode by rememberSaveable { mutableStateOf(Prefs.viewMode(context)) }
+    var mirrorView by rememberSaveable { mutableStateOf(Prefs.mirrorView(context)) }
     var hidePhone by rememberSaveable { mutableStateOf(Prefs.hideWhenConnected(context)) }
     var copied by rememberSaveable { mutableStateOf("") }
 
@@ -142,6 +144,7 @@ fun HostScreen(
                 Prefs.setPreset(context, preset)
                 Prefs.setAudio(context, audio)
                 Prefs.setViewMode(context, viewMode)
+                Prefs.setMirrorView(context, mirrorView)
                 if (android.os.Build.VERSION.SDK_INT >= 23 && !android.provider.Settings.canDrawOverlays(context)) {
                     Intents.overlay(context)
                 }
@@ -174,6 +177,41 @@ fun HostScreen(
                 "Ponsel hanya kontrol. Pada dialog tangkap layar pilih aplikasinya, bukan seluruh layar. MatePad menerima aplikasi itu penuh."
             } else {
                 "Potret: kiri dan kanan 1/4 kontrol, tengah game. Landscape: panel kontrol lebih sempit supaya area game lebih lebar. MatePad menerima game, bukan tombol."
+            },
+            color = Muted,
+            fontSize = 12.sp
+        )
+
+        Text("Tampilan di MatePad", color = Paper, fontWeight = FontWeight.Bold)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(MirrorView.SCREEN to "Layar saja", MirrorView.BOTH to "Layar + gamepad").forEach { (id, label) ->
+                val selected = mirrorView == id
+                Text(
+                    label,
+                    color = if (selected) Ink else Paper,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (selected) Gold else androidx.compose.ui.graphics.Color.White.copy(0.06f))
+                        .clickable {
+                            mirrorView = id
+                            Prefs.setMirrorView(context, id)
+                            if (id == MirrorView.BOTH && android.os.Build.VERSION.SDK_INT >= 23 &&
+                                !android.provider.Settings.canDrawOverlays(context)
+                            ) {
+                                Intents.overlay(context)
+                            }
+                            if (state.running) dev.retrobit.mirror.host.MirrorHostService.setMode(context, viewMode)
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
+        }
+        Text(
+            if (mirrorView == MirrorView.BOTH) {
+                "MatePad menampilkan game dan panel kontrol. Ketukan tetap dilakukan di GT 30 Pro."
+            } else {
+                "MatePad hanya menampilkan game. Gamepad tetap di ponsel dan tidak ikut terkirim."
             },
             color = Muted,
             fontSize = 12.sp
